@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bot WhatsApp — Gestor de Perfiles</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app" class="container">
+        <header>
+            <h1>Gestor de Perfiles</h1>
+            <button id="add-profile-btn" class="btn-accent">+ Agregar nueva cuenta</button>
+        </header>
+
+        <main>
+            <div id="profiles-grid" class="profiles-grid">
+                <!-- Profile cards will be rendered here -->
+        </main>
+    </div>
+
+    <!-- Add Profile Modal (Direct child of body for clean overlay stacking) -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Nuevo Perfil</h2>
+            <div class="form-group">
+                <label for="profile-name">Nombre del perfil:</label>
+                <input type="text" id="profile-name" placeholder="Ej. Ventas" autocomplete="off">
+            </div>
+            <p id="modal-error" class="text-danger mt-10 hidden"></p>
+            <div class="modal-actions">
+                <button id="cancel-add-btn" class="btn-secondary" type="button">Cancelar</button>
+                <button id="confirm-add-btn" class="btn-primary" type="button">Guardar</button>
+            </div>
+        </div>
+    </div>
+    <script src="js/profiles.js"></script>
+</body>
+</html>

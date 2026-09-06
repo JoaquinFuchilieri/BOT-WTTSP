@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bot WhatsApp — Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="dashboard" class="container">
+        <!-- Header Section -->
+        <header class="dashboard-header section-card">
+            <button id="back-btn" class="btn-secondary">← Volver</button>
+            <h2 id="profile-name-display">Cargando...</h2>
+            <div class="status-badge" id="status-badge">Desconectado</div>
+        </header>
+
+        <!-- QR Section -->
+        <section id="qr-section" class="section-card text-center">
+            <h3>Conexión WhatsApp</h3>
+            <div id="qr-container">
+                <!-- QR Image or Connection Status will appear here -->
+            </div>
+            <div class="mt-10">
+                <button id="connect-btn" class="btn-primary">Conectar WhatsApp</button>
+                <button id="disconnect-btn" class="btn-danger hidden">Desconectar</button>
+            </div>
+        </section>
+
+        <!-- Message Section -->
+        <section id="message-section" class="section-card">
+            <h3>Mensaje</h3>
+            <textarea id="message-input" placeholder="Escribe el mensaje aquí..."></textarea>
+            <button id="save-message-btn" class="btn-primary mt-10">Guardar Mensaje</button>
+        </section>
+
+        <!-- Import Section -->
+        <section id="import-section" class="section-card">
+            <h3>Importar Números</h3>
+            <div class="import-controls">
+                <input type="file" id="file-input" accept=".csv,.txt" class="file-input">
+                <textarea id="numbers-paste" placeholder="O pega los números aquí (uno por línea)..."></textarea>
+            </div>
+            <div class="flex-row mt-10 gap-10">
+                <button id="import-btn" class="btn-primary">Cargar Números</button>
+                <button id="retry-errors-btn" class="btn-secondary">Reintentar Errores</button>
+                <button id="clear-queue-btn" class="btn-danger">Limpiar Cola</button>
+            </div>
+        </section>
+
+        <!-- Delay Settings Section -->
+        <section id="delay-section" class="section-card">
+            <h3>Configuración de Retrasos y Límites</h3>
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label for="delay_min">Retraso Min (seg):</label>
+                    <input type="number" id="delay_min" value="115">
+                </div>
+                <div class="form-group">
+                    <label for="delay_max">Retraso Max (seg):</label>
+                    <input type="number" id="delay_max" value="145">
+                </div>
+                <div class="form-group">
+                    <label for="batch_size">Tamaño de Lote:</label>
+                    <input type="number" id="batch_size" value="15">
+                </div>
+                <div class="form-group">
+                    <label for="batch_pause_min">Pausa Lote Min (min):</label>
+                    <input type="number" id="batch_pause_min" value="25">
+                </div>
+                <div class="form-group">
+                    <label for="batch_pause_max">Pausa Lote Max (min):</label>
+                    <input type="number" id="batch_pause_max" value="30">
+                </div>
+                <div class="form-group">
+                    <label for="daily_limit">Límite Diario:</label>
+                    <input type="number" id="daily_limit" value="200">
+                </div>
+            </div>
+            <button id="save-delay-btn" class="btn-primary mt-10">Guardar Configuración</button>
+        </section>
+
+        <!-- Bot Control Section -->
+        <section id="bot-control" class="section-card">
+            <h3>Control del Bot</h3>
+            <div class="text-center mb-20">
+                <button id="toggle-bot-btn" class="btn-large btn-success">Encender Bot</button>
+            </div>
+            <div class="stats-display flex-row">
+                <div class="stat-box">
+                    <h4>Enviados hoy</h4>
+                    <p id="stat-sent">0</p>
+                </div>
+                <div class="stat-box">
+                    <h4>Pendientes</h4>
+                    <p id="stat-pending">0</p>
+                </div>
+                <div class="stat-box">
+                    <h4>Errores</h4>
+                    <p id="stat-errors">0</p>
+                </div>
+                <div class="stat-box">
+                    <h4>Número actual</h4>
+                    <p id="stat-current">-</p>
+                </div>
+                <div class="stat-box">
+                    <h4>Próxima acción</h4>
+                    <p id="stat-next">-</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Queue Section -->
+        <section id="queue-section" class="section-card">
+            <h3>Cola de Números</h3>
+            <div class="table-container">
+                <table id="queue-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Número</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queue-tbody">
+                        <!-- Queue rows will appear here -->
+                    </tbody>
+                </table>
+            </div>
+            <p id="queue-more-note" class="hidden text-secondary mt-10"></p>
+        </section>
+    </div>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
