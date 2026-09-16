@@ -1,0 +1,97 @@
+SaaS Híbrido: Agente Local + Backend Centralizado
+Este documento detalla la planificación y la arquitectura para transformar la herramienta local de envíos de WhatsApp en un producto SaaS Híbrido comercial, tal como se especifica en el documento de arquitectura proporcionado.
+
+Resumen de la Arquitectura
+La arquitectura se divide en dos piezas fundamentales:
+
+Agente Local (Electron + Puppeteer): Se instala en la PC del cliente. Utiliza la RAM y la conexión a internet del cliente para correr la sesión de WhatsApp (Chromium). Contiene el motor anti-baneo y los algoritmos de envío. Su código estará protegido mediante bytenode y javascript-obfuscator y no funcionará sin una conexión válida al servidor.
+Backend Centralizado (Node.js + Express + PostgreSQL): Vive en la nube (ej. Railway o VPS). Maneja la autenticación, la gestión de empresas (tenants), planes, colas de números, reportes estadísticos y el panel de administración web (Dashboard Web).
+TIP
+
+Beneficio principal: El servidor no requiere grandes cantidades de RAM porque las instancias de Chromium corren del lado del cliente. Esto reduce drásticamente los costos de infraestructura, permitiendo soportar cientos de empresas en un servidor económico.
+
+🚦 Fases de Implementación
+Hemos dividido el proyecto en 7 fases secuenciales para garantizar un desarrollo ordenado y testeable.
+
+Fase 1: Cimientos del Backend (1.5 semanas)
+Creación del nuevo repositorio BOT-WTTSP-SERVER.
+Configuración de Express, PostgreSQL y esquemas de base de datos (schema.sql).
+Endpoints de autenticación (/auth/login, /auth/refresh) usando JWT de doble token (Access + Refresh).
+Middleware de autenticación y validación de sesiones activas.
+Fase 2: Multi-tenancy y Gestión de Empresas (1 semana)
+CRUD de empresas para el SuperAdmin (/companies).
+CRUD de usuarios dentro de una empresa (/users).
+Implementación del "tenant scope" (aislamiento de datos por empresa en la base de datos).
+Fase 3: API para el Agente Local (1 semana)
+Migración de la lógica de colas de SQLite al servidor.
+Endpoints para obtener configuración de perfiles (/profiles).
+Endpoints para la cola de envío (import, next, mark-sent, mark-error).
+Recepción de estadísticas y progreso (/stats/progress).
+Fase 4: Adaptación del Agente Electron (1.5 semanas)
+Bloqueo Operativo: Integración de pantalla de login en la app de escritorio.
+Sincronización: Reemplazo de las consultas locales a SQLite por llamadas a la API REST (api-sync.js).
+Conectividad y Kill Switch: Implementación de un polling cada 20 min para renovar sesión, y detección de cortes de internet con un grace period de 5 minutos. Si una cuenta es suspendida en el servidor, el bot se detiene instantáneamente.
+Fase 5: Dashboard Web (2 semanas)
+Panel de SuperAdmin: Gestión global de clientes y planes.
+Panel de Administrador de Empresa: Carga masiva de CSVs, monitoreo de envíos en tiempo real, gestión de operadores y descarga de reportes.
+Desarrollo en HTML/CSS/JS (Vanilla) o React.
+Fase 6: Pipeline de Construcción y Protección (1 semana)
+javascript-obfuscator: Ofuscación de variables y flujos de control.
+bytenode: Compilación de la lógica core (bot-engine, api-sync, etc.) a bytecode V8 (.jsc) para que sea indescifrable.
+electron-builder: Generación de instaladores nativos para Windows y Mac.
+Fase 7: Pruebas de Extremo a Extremo y Deploy
+Testing del flujo completo: Panel Web -> Servidor -> Agente Local -> WhatsApp.
+Pruebas del Kill Switch y cortes de conexión.
+Despliegue en producción (Railway o VPS con Nginx/Certbot).
+❓ Preguntas Abiertas e Insumos Requeridos
+IMPORTANT
+
+Hosting y Base de Datos: ¿Tenés alguna preferencia para alojar el backend (Railway, Fly.io, DigitalOcean, AWS)? Para empezar rápido y sin configuración compleja de servidores, Railway es la opción recomendada en el documento.
+
+IMPORTANT
+
+Dominio web: Necesitaremos un dominio web (ej. tu-empresa.com) para montar la API (api.tu-empresa.com) y el panel web (panel.tu-empresa.com).
+
+# CONTEXTO GENERAL DEL PROYECTO: BOT-WTTSP (SaaS Híbrido)
+
+## 1. RESUMEN DEL PROYECTO
+Estamos construyendo un sistema SaaS Híbrido para envío automatizado de mensajes de primer contacto en WhatsApp a escala. 
+El sistema soporta múltiples cuentas de WhatsApp por empresa.
+
+## 2. ARQUITECTURA TÉCNICA (SaaS Híbrido)
+- **Backend Centralizado (Servidor):**
+  - Stack: Node.js, Express, PostgreSQL.
+  - Función: Maneja autenticación (JWT), gestión de empresas/tenants (Multi-tenancy), planes, límites de usuarios, cola global de números (`phone_queue`) y registros (`sent_log`).
+  - No ejecuta Chromium para no consumir RAM en el servidor.
+  - La selección del siguiente número usa `SELECT ... FOR UPDATE SKIP LOCKED` para evitar duplicación entre operadores.
+
+- **Agente Local (Cliente de Escritorio):**
+  - Stack: Electron.js, `whatsapp-web.js`, SQLite local (solo como Outbox/Sync Buffer).
+  - Función: Se instala en la PC del cliente. Utiliza la RAM del cliente para ejecutar Chromium/WhatsApp Web.
+  - Seguridad/Protección: Código fuente protegido mediante `javascript-obfuscator` + `bytenode` (compilado a V8 Bytecode) + `electron-builder` (.exe / .dmg).
+  - Control de Licencia / Kill Switch: Conexión via Server-Sent Events (SSE) o Polling continuo al servidor. Si la empresa se suspende, la app local recibe error 403 y se cierra de inmediato.
+  - Grace Period: Si pierde internet, tiene 5 minutos de margen operando con caché local antes de pausar.
+
+## 3. ESTRUCTURA DE ARCHIVOS Y REPOSITORIOS
+El proyecto consta de dos partes principales:
+1. **Servidor (`bot-wttsp-server/`):**
+   - `src/app.js` (Express entrypoint)
+   - `src/routes/` (auth.js, companies.js, users.js, profiles.js, queue.js, stats.js)
+   - `src/middleware/` (authenticate.js, roles.js, tenant.js)
+   - `src/db/` (schema.sql, index.js)
+
+2. **Agente Local (`bot-wttsp-agent/` / Electron):**
+   - `src/main/` (index.js, bot-engine.js, whatsapp-manager.js, auth-client.js, api-sync.js, connectivity.js)
+   - `src/renderer/` (login.html, index.html, dashboard.html, js/)
+   - `build/` (obfuscate.js, compile.js)
+
+## 4. PLAN DE TRABAJO Y ROADMAP
+Seguimos el plan de implementación estructurado en fases:
+1. Backend cimientos (Express, PostgreSQL schema, JWT Auth).
+2. API Multi-tenancy y Gestión de Empresas/Usuarios.
+3. API de Cola de números (`queue`), retries y stats.
+4. Adaptación del Agente Electron (Auth, Sync, Outbox SQLite, WhatsApp engine).
+5. Pipeline de Build protegido (Obfuscator + Bytenode + Electron Builder).
+
+## 5. INSTRUCCIÓN PARA LA IA
+Al leer este archivo, debes asumir el rol de Arquitecto de Software Senior y Desarrollador Full-Stack a cargo del proyecto. Conoces la estructura, el modelo híbrido y las decisiones técnicas tomadas.

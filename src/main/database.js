@@ -156,12 +156,9 @@ function importNumbers(profileId, numbers) {
     INSERT INTO phone_queue (id, profile_id, phone_number) VALUES (?, ?, ?)
   `);
 
-  // Check for existing numbers to avoid duplicates in queue AND sent_log
+  // Check for existing numbers to avoid duplicates in queue
   const existsInQueue = db.prepare(
     'SELECT 1 FROM phone_queue WHERE profile_id = ? AND phone_number = ?'
-  );
-  const existsInSent = db.prepare(
-    'SELECT 1 FROM sent_log WHERE profile_id = ? AND phone_number = ?'
   );
 
   const insertMany = db.transaction((nums) => {
@@ -170,9 +167,8 @@ function importNumbers(profileId, numbers) {
       const cleaned = cleanPhoneNumber(num);
       if (!cleaned) continue;
 
-      // Skip if already in queue or already sent
+      // Skip if already in queue
       if (existsInQueue.get(profileId, cleaned)) continue;
-      if (existsInSent.get(profileId, cleaned)) continue;
 
       insert.run(uuidv4(), profileId, cleaned);
       imported++;
@@ -200,7 +196,15 @@ function getNextPendingNumber(profileId) {
   return db.prepare(`
     SELECT id, phone_number FROM phone_queue 
     WHERE profile_id = ? AND status = 'pending'
-    ORDER BY created_at ASC LIMIT 1
+    ORDER BY created_at ASC, id ASC LIMIT 1
+  `).get(profileId);
+}
+
+function peekNextPendingNumber(profileId) {
+  return db.prepare(`
+    SELECT id, phone_number FROM phone_queue 
+    WHERE profile_id = ? AND status = 'pending'
+    ORDER BY created_at ASC, id ASC LIMIT 1
   `).get(profileId);
 }
 
@@ -233,7 +237,7 @@ function getQueueNumbers(profileId) {
   return db.prepare(`
     SELECT id, phone_number, status FROM phone_queue 
     WHERE profile_id = ? 
-    ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'error' THEN 1 ELSE 2 END, created_at ASC
+    ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'error' THEN 1 ELSE 2 END, created_at ASC, id ASC
     LIMIT 200
   `).all(profileId);
 }
@@ -252,6 +256,13 @@ function retryErrors(profileId) {
 function clearErrors(profileId) {
   const result = db.prepare(
     "DELETE FROM phone_queue WHERE profile_id = ? AND status = 'error'"
+  ).run(profileId);
+  return result.changes;
+}
+
+function resetSendingQueue(profileId) {
+  const result = db.prepare(
+    "UPDATE phone_queue SET status = 'pending' WHERE profile_id = ? AND status = 'sending'"
   ).run(profileId);
   return result.changes;
 }
@@ -301,6 +312,7 @@ module.exports = {
   // Queue
   importNumbers,
   getNextPendingNumber,
+  peekNextPendingNumber,
   markNumberAsSent,
   markNumberAsError,
   removeFromQueue,
@@ -309,6 +321,7 @@ module.exports = {
   clearQueue,
   retryErrors,
   clearErrors,
+  resetSendingQueue,
   // Sent log
   logSentMessage,
   incrementSentToday,

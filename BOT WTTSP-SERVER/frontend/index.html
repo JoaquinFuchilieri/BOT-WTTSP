@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>F-Dispatch — Panel Central</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="css/styles.css?v=20260909_live">
+</head>
+<body>
+
+    <!-- ================= LOGIN VIEW ================= -->
+    <div id="login-section" class="flex" style="justify-content: center; align-items: center; min-height: 100vh; padding: 20px;">
+        <div class="panel" style="max-width: 400px; width: 100%; text-align: center; padding: 44px 34px;">
+            <img src="assets/logo.png" alt="F-Dispatch Logo" class="login-brand-logo" onerror="this.onerror=null; this.src='assets/logo.jpg';">
+            <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 6px;">Iniciar Sesión</h2>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 24px;">Panel Central de Gestión • F-Dispatch</p>
+            
+            <form id="login-form" style="text-align: left;">
+                <div class="form-group">
+                    <label for="login-email">Correo electrónico:</label>
+                    <input type="email" id="login-email" placeholder="usuario@empresa.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Contraseña:</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required>
+                </div>
+                <p id="login-error" class="hidden" style="color: var(--accent-red); font-size: 13px; margin-bottom: 12px;"></p>
+                <button type="submit" id="login-submit-btn" class="btn-primary" style="width: 100%; padding: 12px; font-size: 14.5px; font-weight: 600;">Ingresar al Panel</button>
+            </form>
+
+            <div class="login-footer-prompt">
+                <span class="prompt-text">¿Aún envías mensajes manualmente?</span>
+                <a href="contacto.html" class="contact-link">Contáctanos</a>
+            </div>
+
+            <div class="fuchi-watermark" style="margin-top: 18px;">powered by Fuchi</div>
+        </div>
+    </div>
+
+    <!-- ================= APP SHELL LAYOUT ================= -->
+    <div id="app-section" class="app-layout hidden">
+
+        <!-- GEMINI-STYLE COLLAPSIBLE SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div>
+                <div class="sidebar-header">
+                    <img src="assets/logo.png" alt="Logo" class="app-logo app-logo-sm" style="margin-left: 2px;">
+                    <div class="sidebar-title">F-<span style="color:var(--accent-pink);">Dispatch</span></div>
+                </div>
+
+                <nav class="sidebar-nav">
+                    <!-- Superadmin items -->
+                    <a class="nav-item hidden" id="nav-companies" data-view="view-companies">
+                        <span class="nav-icon"><i data-lucide="building-2"></i></span>
+                        <span class="nav-text">Empresas</span>
+                    </a>
+                    <a class="nav-item hidden" id="nav-announcements" data-view="view-announcements">
+                        <span class="nav-icon"><i data-lucide="megaphone"></i></span>
+                        <span class="nav-text">Anuncios Globales</span>
+                    </a>
+
+                    <!-- Tenant-scoped items -->
+                    <a class="nav-item active" id="nav-metrics" data-view="view-metrics">
+                        <span class="nav-icon"><i data-lucide="bar-chart-3"></i></span>
+                        <span class="nav-text">Métricas & Reportes</span>
+                    </a>
+                    <a class="nav-item" id="nav-blacklist" data-view="view-blacklist">
+                        <span class="nav-icon"><i data-lucide="shield-ban"></i></span>
+                        <span class="nav-text">Lista de Exclusión</span>
+                    </a>
+                    <a class="nav-item" id="nav-admins" data-view="view-admins">
+                        <span class="nav-icon"><i data-lucide="shield-check"></i></span>
+                        <span class="nav-text">Administradores</span>
+                    </a>
+                    <a class="nav-item" id="nav-operators" data-view="view-operators">
+                        <span class="nav-icon"><i data-lucide="users"></i></span>
+                        <span class="nav-text">Operadores</span>
+                    </a>
+                    <a class="nav-item" id="nav-admin-announcements" data-view="view-admin-announcements">
+                        <span class="nav-icon" style="position: relative;">
+                            <i data-lucide="megaphone"></i>
+                            <span id="nav-announcements-dot" class="apple-notification-dot hidden"></span>
+                        </span>
+                        <span class="nav-text">Anuncios</span>
+                    </a>
+                    <a class="nav-item" id="nav-audit" data-view="view-audit">
+                        <span class="nav-icon"><i data-lucide="activity"></i></span>
+                        <span class="nav-text">Auditoría</span>
+                    </a>
+                    <a class="nav-item" id="nav-reports" data-view="view-reports">
+                        <span class="nav-icon"><i data-lucide="life-buoy"></i></span>
+                        <span class="nav-text">Reportes de Soporte</span>
+                    </a>
+                    <a class="nav-item" id="nav-help" data-view="view-help">
+                        <span class="nav-icon"><i data-lucide="book-open"></i></span>
+                        <span class="nav-text">Ayuda & Manual</span>
+                    </a>
+                </nav>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-avatar" id="sidebar-avatar">U</div>
+                <div class="user-info">
+                    <div class="user-email" id="sidebar-email">usuario@correo.com</div>
+                    <div class="user-role" id="sidebar-role">Rol</div>
+                </div>
+                <div class="fuchi-watermark" style="padding: 6px 0 0 0; font-size: 10px; width: 100%;">powered by Fuchi</div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT WRAPPER -->
+        <main class="content-wrapper">
+
+            <!-- SYSTEM ANNOUNCEMENT BANNER -->
+            <div id="web-announcement-banner" class="announcement-banner hidden"></div>
+
+            <!-- TOP BREADCRUMB BAR -->
+            <div class="breadcrumb-bar">
+                <div class="breadcrumb-path">
+                    <span id="breadcrumb-root">Empresa Activa:</span>
+                    <span id="breadcrumb-company" style="color: var(--accent-blue); font-weight: 700;">-</span>
+                    <button id="btn-switch-company" class="btn-secondary hidden" style="padding: 4px 12px; font-size: 11.5px; margin-left: 10px;">
+                        <i data-lucide="arrow-left"></i> Cambiar de Empresa
+                    </button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="btn-open-announcements-inbox" class="btn-secondary" onclick="switchView('view-admin-announcements')" style="position: relative; display: flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px;">
+                        <span style="position: relative; display: inline-flex; align-items: center;">
+                            <i data-lucide="megaphone"></i>
+                            <span id="top-announcements-dot" class="apple-notification-dot hidden"></span>
+                        </span>
+                        <span>Anuncios</span>
+                    </button>
+                    <button id="btn-logout" class="btn-secondary" style="padding: 6px 14px; font-size: 12px;"><i data-lucide="log-out"></i> Cerrar sesión</button>
+                </div>
+            </div>
+
+            <!-- ================= VIEW 1: DIRECTORIO DE EMPRESAS (SUPERADMIN ONLY) ================= -->
+            <section id="view-companies" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Directorio General de Empresas</h3>
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Seleccioná una empresa para entrar a gestionar sus métricas, administradores, operadores, WhatsApps y colas.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button id="btn-open-superadmin-announcements" class="btn-secondary" onclick="switchView('view-announcements')" style="display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="megaphone"></i> Anuncios Globales
+                            </button>
+                            <button id="btn-open-superadmin-tickets" class="btn-secondary" onclick="switchView('view-reports')" style="display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="life-buoy"></i> Reportes de Soporte Técnico
+                            </button>
+                            <button id="btn-open-superadmin-help" class="btn-secondary" onclick="switchView('view-help')" style="display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="book-open"></i> Manual de Ayuda
+                            </button>
+                            <button id="btn-open-create-company" class="btn-primary"><i data-lucide="plus"></i> Nueva Empresa</button>
+                        </div>
+                    </div>
+
+                    <div class="companies-grid" id="companies-grid">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= VIEW 2: MÉTRICAS DE LA EMPRESA ================= -->
+            <section id="view-metrics" class="view-content">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-title">Enviados Hoy</div>
+                        <div class="metric-value" id="m-sent-today">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Total Acumulado</div>
+                        <div class="metric-value" id="m-total-sent">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Pendientes en Cola</div>
+                        <div class="metric-value" id="m-pending">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Cuentas WA Conectadas</div>
+                        <div class="metric-value"><span id="m-profiles-connected">0</span> <span style="font-size: 14px; color: var(--text-secondary); font-weight: normal;">/ <span id="m-profiles-total">0</span></span></div>
+                    </div>
+                </div>
+
+                <!-- COMPARATIVA DE RENDIMIENTO DE OPERADORES -->
+                <div class="panel" style="margin-top: 24px;">
+                    <div class="panel-header">
+                        <div>
+                            <h3 style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="users" style="color: var(--accent-pink);"></i> Comparativa de Rendimiento entre Operadores
+                            </h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">Monitoreo de actividad, tasa de entrega y efectividad de cada operador en tiempo real.</p>
+                        </div>
+                        <button id="btn-refresh-operators-comparison" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">
+                            <i data-lucide="refresh-cw"></i> Actualizar
+                        </button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Operador</th>
+                                    <th>Cuentas WA</th>
+                                    <th>Enviados Hoy</th>
+                                    <th>Total Enviados</th>
+                                    <th>Errores</th>
+                                    <th>Pendientes</th>
+                                    <th>Tasa de Entrega</th>
+                                    <th>Última Actividad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="operators-comparison-tbody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- REPORTES EJECUTIVOS Y EXPORTACIÓN -->
+                <div class="panel" style="margin-top: 24px;">
+                    <div class="panel-header">
+                        <div>
+                            <h3 style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="file-spreadsheet" style="color: var(--accent-pink);"></i> Reportes Ejecutivos & Exportación
+                            </h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">Filtra registros históricos de envíos y descarga informes ejecutivos en formatos CSV y PDF imprimible.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button id="btn-export-csv" class="btn-secondary" style="display: flex; align-items: center; gap: 6px; font-size: 12.5px;">
+                                <i data-lucide="download"></i> Exportar CSV
+                            </button>
+                            <button id="btn-export-pdf" class="btn-primary" style="display: flex; align-items: center; gap: 6px; font-size: 12.5px;">
+                                <i data-lucide="printer"></i> Imprimir / PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- FILTROS DE REPORTES -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; background: rgba(0,0,0,0.25); padding: 16px; border-radius: 12px; border: 1px solid var(--border-hairline);">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="report-filter-start">Fecha Desde:</label>
+                            <input type="date" id="report-filter-start">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="report-filter-end">Fecha Hasta:</label>
+                            <input type="date" id="report-filter-end">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="report-filter-operator">Operador:</label>
+                            <select id="report-filter-operator">
+                                <option value="">Todos los Operadores</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="report-filter-result">Resultado:</label>
+                            <select id="report-filter-result">
+                                <option value="">Todos (Enviados y Errores)</option>
+                                <option value="sent">Solo Exitosos (Enviados)</option>
+                                <option value="error">Solo Fallidos (Errores)</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button id="btn-apply-report-filters" class="btn-primary" style="width: 100%; height: 38px;">
+                                <i data-lucide="filter"></i> Filtrar Reporte
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- RESUMEN EJECUTIVO -->
+                    <div class="metrics-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
+                        <div class="metric-card" style="padding: 14px;">
+                            <div class="metric-title" style="font-size: 11px;">Total Filtrado</div>
+                            <div class="metric-value" id="report-sum-total" style="font-size: 20px;">0</div>
+                        </div>
+                        <div class="metric-card" style="padding: 14px;">
+                            <div class="metric-title" style="font-size: 11px; color: #4ade80;">Enviados Exitosos</div>
+                            <div class="metric-value" id="report-sum-sent" style="font-size: 20px; color: #4ade80;">0</div>
+                        </div>
+                        <div class="metric-card" style="padding: 14px;">
+                            <div class="metric-title" style="font-size: 11px; color: #f87171;">Errores / Fallos</div>
+                            <div class="metric-value" id="report-sum-errors" style="font-size: 20px; color: #f87171;">0</div>
+                        </div>
+                        <div class="metric-card" style="padding: 14px;">
+                            <div class="metric-title" style="font-size: 11px;">Tasa de Efectividad</div>
+                            <div class="metric-value" id="report-sum-rate" style="font-size: 20px; color: var(--accent-pink);">100%</div>
+                        </div>
+                    </div>
+
+                    <!-- PREVISUALIZACIÓN DE REGISTROS -->
+                    <div class="table-wrap" style="max-height: 380px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Cuenta WhatsApp</th>
+                                    <th>Operador</th>
+                                    <th>Destinatario</th>
+                                    <th>Estado</th>
+                                    <th>Detalle / Error</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-rows-tbody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- ================= VIEW 3: ADMINISTRADORES ================= -->
+            <section id="view-admins" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Administradores de la Empresa</h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary);">Usuarios con privilegios de gestión total dentro de la empresa.</p>
+                        </div>
+                        <button id="btn-add-admin" class="btn-primary"><i data-lucide="user-plus"></i> Nuevo Administrador</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th>Fecha Alta</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admins-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= VIEW 4: OPERADORES ================= -->
+            <section id="view-operators" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Operadores de la Empresa</h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary);" id="operators-quota-text">Cupo: cargando...</p>
+                        </div>
+                        <button id="btn-add-operator" class="btn-primary"><i data-lucide="user-plus"></i> Nuevo Operador</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Usuario / Email</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th>Cuentas WA</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="operators-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ANIDADO: CUENTAS WA DEL OPERADOR O ADMINISTRADOR SELECCIONADO -->
+                <div id="nested-operator-profiles-panel" class="panel hidden mt-20" style="margin-top: 24px; border: 1px solid var(--accent-blue);">
+                    <div class="panel-header">
+                        <div>
+                            <h3 id="nested-operator-title">Cuentas de WhatsApp de [Usuario]</h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary);" id="nested-operator-quota">Límite: cargando...</p>
+                        </div>
+                        <div class="flex gap-10">
+                            <button id="btn-add-nested-profile" class="btn-primary"><i data-lucide="plus-circle"></i> Agregar Cuenta</button>
+                            <button id="btn-close-nested-profiles" class="btn-secondary"><i data-lucide="x"></i> Cerrar</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Nombre de Cuenta</th>
+                                    <th>Estado Sesión</th>
+                                    <th>Enviados Hoy</th>
+                                    <th>Límite Diario</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nested-profiles-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= VIEW 5: REPORTES DE SOPORTE ================= -->
+            <section id="view-reports" class="view-content hidden">
+                <!-- SUPERADMIN: LOG DE SOLO LECTURA [Empresa] - [Admin] - [Hora] -->
+                <div id="reports-superadmin-view" class="panel hidden">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Registro de Reportes de Soporte Técnico</h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary);">Reportes e incidentes enviados por los Administradores de las empresas a nivel global.</p>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button id="btn-back-to-companies" class="btn-secondary"><i data-lucide="arrow-left"></i> Volver al Directorio</button>
+                            <button id="btn-refresh-tickets" class="btn-secondary"><i data-lucide="refresh-cw"></i> Actualizar</button>
+                        </div>
+                    </div>
+                    <div id="tickets-log-list" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- ADMIN DE EMPRESA: FORMULARIO LIMPIO DE ENVÍO DE PROBLEMAS -->
+                <div id="reports-admin-view" class="panel hidden" style="max-width: 700px; margin: 0 auto;">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Reportar un Problema o Incidencia</h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary);">Redactá tu consulta o problema para que el equipo de soporte técnico lo revise.</p>
+                        </div>
+                    </div>
+                    <form id="admin-report-form" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div class="form-group">
+                            <label for="ticket-title">Título del problema:</label>
+                            <input type="text" id="ticket-title" placeholder="Ej: Error al conectar WhatsApp o mensaje demorado" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ticket-content">Descripción detallada del problema:</label>
+                            <textarea id="ticket-content" style="height: 140px;" placeholder="Detallá qué ocurrió, mensajes de error y contexto..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="ticket-attachment">Adjuntar comprobante o captura (.png o .pdf únicamente):</label>
+                            <input type="file" id="ticket-attachment" accept=".png,.pdf" class="file-input">
+                            <p style="font-size: 11.5px; color: var(--text-secondary); margin-top: 4px;">Máximo 10MB. Solo se permiten extensiones .png y .pdf.</p>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                            <button type="submit" id="btn-submit-ticket" class="btn-primary" style="padding: 10px 24px;"><i data-lucide="send"></i> Enviar Reporte al Soporte</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- ================= VIEW: ANUNCIOS DEL SISTEMA (ADMIN DE EMPRESA) ================= -->
+            <section id="view-admin-announcements" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+                                <i data-lucide="megaphone" style="color: var(--accent-pink);"></i> Anuncios y Avisos del Sistema
+                            </h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; margin-bottom: 0;">Comunicados, novedades y actualizaciones oficiales emitidas por la SuperAdministración.</p>
+                        </div>
+                        <button id="btn-refresh-admin-announcements" class="btn-secondary" style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12.5px;">
+                            <i data-lucide="refresh-cw"></i> Actualizar
+                        </button>
+                    </div>
+
+                    <!-- Split View: Left list of cards, Right full reader -->
+                    <div style="display: grid; grid-template-columns: 340px 1fr; gap: 18px; margin-top: 16px; min-height: 480px;">
+                        <!-- Left: Cards list -->
+                        <div id="admin-announcements-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 650px; overflow-y: auto; padding-right: 6px;">
+                            <!-- Populated via JS -->
+                        </div>
+
+                        <!-- Right: Selected Announcement Full Reader -->
+                        <div id="admin-announcement-reader" style="background: rgba(14, 20, 36, 0.5); border: 1px solid var(--border-hairline); border-radius: 14px; padding: 26px; display: flex; flex-direction: column;">
+                            <div style="text-align: center; color: var(--text-secondary); margin: auto; padding: 20px;">
+                                <i data-lucide="message-square" style="width: 44px; height: 44px; opacity: 0.3; margin-bottom: 12px;"></i>
+                                <p style="font-size: 14px; margin: 0;">Seleccioná un anuncio de la lista para leerlo en detalle.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= VIEW 6: BLACKLIST / LISTA DE EXCLUSIÓN ================= -->
+            <section id="view-blacklist" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3 style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="shield-ban" style="color: var(--accent-pink);"></i> Lista de Exclusión Global (Blacklist)
+                            </h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">Números bloqueados para no contactar. Se omiten automáticamente al importar y de la cola activa.</p>
+                        </div>
+                        <button id="btn-open-add-blacklist" class="btn-primary"><i data-lucide="plus"></i> Bloquear Número</button>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px; max-width: 400px;">
+                        <input type="text" id="blacklist-search-input" placeholder="Buscar por número o motivo...">
+                    </div>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Número Telefónico</th>
+                                    <th>Motivo del Bloqueo</th>
+                                    <th>Fecha de Registro</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="blacklist-table-body">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= VIEW 7: ANUNCIOS GLOBALES (SUPERADMIN) ================= -->
+            <section id="view-announcements" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <button id="btn-back-from-announcements" class="btn-secondary" onclick="handleBackFromAnnouncements()" style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12.5px;">
+                                <i data-lucide="arrow-left"></i> Volver
+                            </button>
+                            <div>
+                                <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+                                    <i data-lucide="megaphone" style="color: var(--accent-pink);"></i> Anuncios Globales del Sistema
+                                </h3>
+                                <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; margin-bottom: 0;">Publicá alertas y avisos de mantenimiento visibles en el Panel Web y en la App Electron de todos los usuarios.</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button id="btn-delete-selected-announcements" class="btn-danger hidden" onclick="deleteSelectedAnnouncements()" style="display: none; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12.5px; cursor: pointer;">
+                                <i data-lucide="trash-2"></i> Eliminar (<span id="selected-announcements-count">0</span>)
+                            </button>
+                            <button id="btn-open-create-announcement" class="btn-primary" onclick="const m = document.getElementById('modal-announcement'); if(m) { m.classList.remove('hidden'); const t = document.getElementById('new-announcement-title'); if(t) { t.value = ''; setTimeout(() => t.focus(), 50); } const msg = document.getElementById('new-announcement-message'); if(msg) msg.value = ''; } if (typeof window.openCreateAnnouncementModal === 'function') { try { window.openCreateAnnouncementModal(); } catch(e){} }" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <i data-lucide="plus"></i> Nuevo Anuncio
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 44px; text-align: center;">
+                                        <input type="checkbox" id="select-all-announcements" onchange="toggleSelectAllAnnouncements(this.checked)" title="Seleccionar todos" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-pink, #e04d80);">
+                                    </th>
+                                    <th>Título</th>
+                                    <th>Mensaje</th>
+                                    <th>Prioridad</th>
+                                    <th>Estado</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="announcements-table-body">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= VIEW 8: HISTORIAL DE AUDITORÍA ================= -->
+            <section id="view-audit" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3 style="display: flex; align-items: center; gap: 8px;">
+                                <i data-lucide="activity" style="color: var(--accent-pink);"></i> Registro de Auditoría y Seguridad
+                            </h3>
+                            <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">Historial inmutable de eventos sensibles (altas, modificaciones, límites, listas de exclusión, alertas anti-ban).</p>
+                        </div>
+                        <button id="btn-refresh-audit" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">
+                            <i data-lucide="refresh-cw"></i> Actualizar
+                        </button>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px; max-width: 400px;">
+                        <input type="text" id="audit-search-input" placeholder="Filtrar por acción, email o IP...">
+                    </div>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Usuario Responsable</th>
+                                    <th>Acción Realizada</th>
+                                    <th>Dirección IP</th>
+                                    <th>Detalles / Metadatos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table-body">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= VIEW 10: MANUAL DE AYUDA Y OPERACIÓN ================= -->
+            <section id="view-help" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h3 style="display: flex; align-items: center; gap: 10px;">
+                                <i data-lucide="book-open" style="color: var(--accent-pink);"></i>
+                                <span id="help-view-title-display">Manual Integral de Uso y Operación</span>
+                            </h3>
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
+                                Guía oficial, instructivos paso a paso y mejores prácticas de seguridad anti-bloqueos.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <!-- Search box -->
+                            <div class="search-box" style="margin: 0; min-width: 230px;">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="help-search-input" placeholder="Buscar en el manual...">
+                            </div>
+                            <!-- SuperAdmin controls -->
+                            <button id="btn-edit-help" class="btn-primary hidden" style="display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="edit-3"></i> Editar Manual
+                            </button>
+                            <button id="btn-reset-help" class="btn-secondary hidden" style="display: flex; align-items: center; gap: 6px; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+                                <i data-lucide="rotate-ccw"></i> Restaurar Fábrica
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- READ MODE CONTAINER -->
+                    <div id="help-read-container">
+                        <!-- Quick Jump Bar -->
+                        <div id="help-quick-bar" class="help-quick-bar">
+                            <button type="button" class="help-nav-pill active" data-target="all">Todo el Manual</button>
+                            <button type="button" class="help-nav-pill" data-target="1-programa-de-escritorio">1. Programa Desktop</button>
+                            <button type="button" class="help-nav-pill" data-target="2-opciones-y-retardos">2. Retardos & Seguridad</button>
+                            <button type="button" class="help-nav-pill" data-target="3-panel-web">3. Panel Web (SaaS)</button>
+                            <button type="button" class="help-nav-pill" data-target="4-buenas-practicas">4. Consejos Anti-Ban</button>
+                        </div>
+
+                        <!-- Rendered Markdown Output -->
+                        <div id="help-content-display" class="manual-content-display">
+                            <div style="color: var(--text-secondary); padding: 25px; text-align: center;">Cargando manual...</div>
+                        </div>
+
+                        <!-- Manual Meta Footer -->
+                        <div class="manual-meta-footer">
+                            <span>Documentación oficial de F-Dispatch</span>
+                            <span class="fuchi-watermark" style="padding: 0; font-size: 10px; display: inline-block;">powered by Fuchi</span>
+                            <span id="help-meta-updated">Última actualización: -</span>
+                        </div>
+                    </div>
+
+                    <!-- EDIT MODE CONTAINER (SuperAdmin only) -->
+                    <div id="help-edit-container" class="hidden">
+                        <div class="help-edit-alert">
+                            <div>
+                                <strong style="color: var(--accent-pink); font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="info"></i> Modo de Edición Activo (SuperAdmin)
+                                </strong>
+                                <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">
+                                    Modificá los títulos y contenidos. Los cambios se sincronizarán en tiempo real con todas las empresas y programas de escritorio. Soporta sintaxis Markdown (#, ##, **, -, etc.).
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <button id="btn-cancel-help" class="btn-secondary" style="padding: 8px 16px;">Cancelar</button>
+                                <button id="btn-save-help" class="btn-primary" style="padding: 8px 18px; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="check"></i> Guardar Cambios
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 18px;">
+                            <label for="help-edit-title" style="font-size: 13.5px; font-weight: 600; margin-bottom: 6px; display: block;">Título del Manual:</label>
+                            <input type="text" id="help-edit-title" class="form-control" style="width: 100%; font-size: 14.5px; font-weight: 600;">
+                        </div>
+
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label for="help-edit-content" style="font-size: 13.5px; font-weight: 600; display: block;">Cuerpo del Manual (Formato Markdown):</label>
+                                <span style="font-size: 11.5px; color: var(--text-secondary);">Podés usar encabezados (#, ##), listas (-), negritas (**) y enlaces.</span>
+                            </div>
+                            <textarea id="help-edit-content" rows="26" class="form-control" style="width: 100%; font-family: 'Consolas', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; resize: vertical; box-sizing: border-box;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="fuchi-watermark" style="margin-top: 35px; margin-bottom: 12px;">powered by Fuchi</div>
+        </main>
+    </div>
+
+    <!-- ================= MODALES ================= -->
+
+    <!-- Modal: Crear Empresa (SuperAdmin) -->
+    <div id="modal-company" class="modal hidden">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 14px;">Registrar Nueva Empresa</h3>
+            <div class="form-group">
+                <label for="new-comp-name">Nombre de la Empresa:</label>
+                <input type="text" id="new-comp-name" placeholder="Ej: Concesionaria Central">
+            </div>
+            <div class="form-group">
+                <label for="new-comp-email">Email del Administrador:</label>
+                <input type="email" id="new-comp-email" placeholder="admin@concesionaria.com">
+            </div>
+            <div class="form-group">
+                <label for="new-comp-pass">Contraseña:</label>
+                <input type="password" id="new-comp-pass" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+                <label for="new-comp-limit">Límite de Operadores que puede crear el Admin:</label>
+                <input type="number" id="new-comp-limit" value="5" min="1">
+            </div>
+            <div class="form-group">
+                <label for="new-comp-max-profiles">Límite de Cuentas WhatsApp por Operador:</label>
+                <input type="number" id="new-comp-max-profiles" value="3" min="1">
+            </div>
+            <p id="modal-comp-error" class="hidden" style="color: var(--accent-red); font-size: 13px; margin-bottom: 10px;"></p>
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
+                <button id="modal-comp-cancel" class="btn-secondary">Cancelar</button>
+                <button id="modal-comp-save" class="btn-primary">Guardar Empresa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Configuración de Límites de Empresa (Engranaje ) -->
+    <div id="modal-company-limits" class="modal hidden">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 6px;">Configuración de Límites</h3>
+            <p id="limits-company-name" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;"></p>
+            <input type="hidden" id="limits-company-id">
+            <div class="form-group">
+                <label for="limits-user-limit">Cantidad máxima de Operadores que el Admin puede crear:</label>
+                <input type="number" id="limits-user-limit" min="1">
+            </div>
+            <div class="form-group">
+                <label for="limits-max-profiles">Cantidad máxima de cuentas de WhatsApp por Operador:</label>
+                <input type="number" id="limits-max-profiles" min="1">
+            </div>
+            <div class="flex gap-10" style="justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-hairline);">
+                <button id="modal-limits-delete-company" class="btn-danger" style="padding: 8px 14px; font-size: 12.5px;"><i data-lucide="trash-2"></i> Borrar Empresa</button>
+                <div class="flex gap-10">
+                    <button id="modal-limits-cancel" class="btn-secondary">Cancelar</button>
+                    <button id="modal-limits-save" class="btn-primary">Guardar Límites</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Crear/Editar Usuario -->
+    <div id="modal-user" class="modal hidden">
+        <div class="modal-card">
+            <h3 id="modal-user-title" style="margin-bottom: 14px;">Nuevo Usuario</h3>
+            <input type="hidden" id="edit-user-id">
+            <div class="form-group">
+                <label for="new-user-email">Correo electrónico válido (ej: usuario@empresa.com):</label>
+                <input type="email" id="new-user-email" placeholder="usuario@empresa.com" required>
+            </div>
+            <div class="form-group">
+                <label for="new-user-pass">Contraseña <span id="pass-hint" style="color:var(--text-secondary); font-size:11px;">(dejar en blanco para no cambiar)</span>:</label>
+                <input type="password" id="new-user-pass" placeholder="••••••••">
+            </div>
+            <div class="form-group" id="user-role-group">
+                <label for="new-user-role">Rol del usuario:</label>
+                <select id="new-user-role">
+                    <option value="user">Operador (Empleado)</option>
+                    <option value="admin">Administrador de Empresa</option>
+                </select>
+            </div>
+            <p id="modal-user-error" class="hidden" style="color: var(--accent-red); font-size: 13px; margin-bottom: 10px;"></p>
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
+                <button id="modal-user-cancel" class="btn-secondary">Cancelar</button>
+                <button id="modal-user-save" class="btn-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Crear Perfil WA Anidado a Operador -->
+    <div id="modal-nested-profile" class="modal hidden">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 14px;">Nueva Cuenta de WhatsApp</h3>
+            <p id="nested-profile-operator-label" style="font-size: 13px; color: var(--accent-blue); margin-bottom: 14px;"></p>
+            <div class="form-group">
+                <label for="new-nested-profile-name">Nombre descriptivo de la cuenta:</label>
+                <input type="text" id="new-nested-profile-name" placeholder="Ej: Ventas WhatsApp 01">
+            </div>
+            <div class="form-group">
+                <label for="new-nested-profile-message">Mensaje automático inicial:</label>
+                <textarea id="new-nested-profile-message" placeholder="Hola, te contacto para..."></textarea>
+            </div>
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
+                <button id="modal-nested-profile-cancel" class="btn-secondary">Cancelar</button>
+                <button id="modal-nested-profile-save" class="btn-primary">Crear Cuenta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Detalle de Ticket / Reporte de Soporte (SuperAdmin) -->
+    <div id="modal-ticket-detail" class="modal hidden">
+        <div class="modal-card" style="max-width: 540px;">
+            <h3 id="ticket-detail-title" style="margin-bottom: 6px;">Detalle del Reporte</h3>
+            <p id="ticket-detail-meta" style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px;"></p>
+            <div class="form-group">
+                <label>Descripción del problema:</label>
+                <p id="ticket-detail-content" style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 10px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; color: var(--text-primary);"></p>
+            </div>
+            <div id="ticket-detail-attachment-box" class="form-group hidden" style="margin-top: 12px;">
+                <label>Archivo adjunto:</label>
+                <div style="margin-top: 6px;">
+                    <a id="ticket-detail-attachment-link" href="#" target="_blank" class="btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;">
+                        <i data-lucide="paperclip"></i> Ver archivo adjunto (<span id="ticket-detail-attachment-name"></span>)
+                    </a>
+                </div>
+            </div>
+            <div class="flex gap-10" style="justify-content: space-between; align-items: center; margin-top: 20px;">
+                <button id="modal-ticket-detail-delete" class="btn-danger" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px;">
+                    <i data-lucide="trash-2"></i> Borrar Queja
+                </button>
+                <button id="modal-ticket-detail-close" class="btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Redactar Carta / Reporte Escrito -->
+    <div id="modal-note" class="modal hidden">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 14px;">Redactar Reporte / Carta Escrita</h3>
+            <div class="form-group">
+                <label for="note-title">Título del Reporte:</label>
+                <input type="text" id="note-title" placeholder="Ej: Reporte de Bloqueo o Rendimiento de Campaña">
+            </div>
+            <div class="form-group">
+                <label for="note-category">Categoría:</label>
+                <select id="note-category">
+                    <option value="general">Informe General</option>
+                    <option value="incident">Incidencia / Problema</option>
+                    <option value="feedback">Opinión / Sugerencia</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="note-content">Contenido detallado:</label>
+                <textarea id="note-content" style="height: 140px;" placeholder="Escribe aquí lo sucedido, observaciones o feedback..."></textarea>
+            </div>
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
+                <button id="modal-note-cancel" class="btn-secondary" onclick="hideModal('modal-note')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Agregar a Lista de Exclusión (Blacklist) -->
+    <div id="modal-blacklist" class="modal hidden">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="shield-ban" style="color: var(--accent-pink);"></i> Bloquear Número (Blacklist)
+            </h3>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px;">Este número no recibirá mensajes de ninguna cuenta ni campaña de la empresa.</p>
+            <div class="form-group">
+                <label for="new-blacklist-phone">Número de Teléfono (con código de país):</label>
+                <input type="text" id="new-blacklist-phone" placeholder="Ej: +5491112345678" required>
+            </div>
+            <div class="form-group">
+                <label for="new-blacklist-reason">Motivo del bloqueo (opcional):</label>
+                <input type="text" id="new-blacklist-reason" placeholder="Ej: Solicitó no ser contactado / DNC">
+            </div>
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
+                <button id="modal-blacklist-cancel" class="btn-secondary">Cancelar</button>
+                <button id="modal-blacklist-save" class="btn-primary">Guardar en Blacklist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Crear Anuncio del Sistema (SuperAdmin) -->
+    <div id="modal-announcement" class="modal hidden">
+        <div class="modal-card">
+            <h3 style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="megaphone" style="color: var(--accent-pink);"></i> Publicar Anuncio Global
+            </h3>
+            <div class="form-group">
+                <label for="new-announcement-title">Título del Anuncio:</label>
+                <input type="text" id="new-announcement-title" placeholder="Ej: Mantenimiento programado de servidores" required>
+            </div>
+            <div class="form-group">
+                <label for="new-announcement-message">Mensaje / Contenido:</label>
+                <textarea id="new-announcement-message" style="height: 100px;" placeholder="Detalles visibles en los banners..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="new-announcement-priority">Nivel de Prioridad:</label>
+                <select id="new-announcement-priority">
+                    <option value="info">Informativo (Azul)</option>
+                    <option value="warning">Advertencia (Amarillo)</option>
+                    <option value="danger">Crítico / Urgente (Rojo)</option>
+                </select>
+            </div>
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
+                <button id="modal-announcement-cancel" class="btn-secondary" onclick="const m = document.getElementById('modal-announcement'); if(m) m.classList.add('hidden');">Cancelar</button>
+                <button id="modal-announcement-save" class="btn-primary">Publicar Anuncio</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Bandeja de Anuncios y Avisos del Sistema (Chats Flotantes) -->
+    <div id="modal-announcements-inbox" class="modal hidden">
+        <div class="modal-card" style="max-width: 860px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; background: linear-gradient(135deg, rgba(16, 24, 42, 0.98) 0%, rgba(9, 14, 26, 0.99) 100%);">
+            <!-- Header -->
+            <div style="padding: 16px 22px; border-bottom: 1px solid var(--border-hairline); display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.02);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(224, 77, 128, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-pink);">
+                        <i data-lucide="megaphone"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            Bandeja de Avisos del Sistema
+                        </h3>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-secondary);">Comunicados y novedades oficiales emitidos por la SuperAdministración</p>
+                    </div>
+                </div>
+                <button id="modal-announcements-inbox-close" class="btn-secondary" style="padding: 6px 10px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px;">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <!-- Content Area: Split View -->
+            <div style="display: grid; grid-template-columns: 320px 1fr; min-height: 400px; max-height: calc(85vh - 75px); overflow: hidden;">
+                <!-- Left: Floating Chat Cards List -->
+                <div id="inbox-chats-list" style="border-right: 1px solid var(--border-hairline); overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: rgba(6, 10, 20, 0.5);">
+                    <!-- Dynamic chat cards rendered via JS -->
+                </div>
+
+                <!-- Right: Selected Chat / Announcement Full Reader -->
+                <div id="inbox-chat-detail" style="overflow-y: auto; padding: 24px; display: flex; flex-direction: column; background: rgba(14, 20, 36, 0.35);">
+                    <div style="text-align: center; color: var(--text-secondary); margin: auto; padding: 20px;">
+                        <i data-lucide="message-square" style="width: 44px; height: 44px; opacity: 0.3; margin-bottom: 12px;"></i>
+                        <p style="font-size: 13.5px; margin: 0;">Seleccioná un aviso de la lista para leerlo en detalle.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Configuración de Parámetros de Perfil / Cuenta WA -->
+    <div id="modal-profile-config" class="modal hidden">
+        <div class="modal-card" style="max-width: 620px;">
+            <h3 id="profile-config-title" style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="sliders" style="color: var(--accent-pink);"></i> Configuración de Cuenta WA
+            </h3>
+            <p id="profile-config-subtitle" style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px;"></p>
+            <input type="hidden" id="profile-config-id">
+
+            <!-- Banner Alerta Temprana si está pausada -->
+            <div id="modal-profile-early-warning" class="early-warning-banner hidden" style="margin-bottom: 16px; padding: 10px 14px;">
+                <div style="font-size: 12px; color: #fca5a5;">
+                    <strong>⚠️ Cola Pausada por Alerta Temprana:</strong>
+                    <span id="modal-early-warning-text" style="display: block; margin-top: 2px;"></span>
+                </div>
+                <button id="btn-modal-resume-early-warning" class="btn-primary" style="padding: 4px 10px; font-size: 11px; background: #dc2626;">
+                    Reanudar
+                </button>
+            </div>
+
+            <!-- Parámetros Anti-ban Base -->
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="cfg-daily-limit">Límite Diario Base:</label>
+                    <input type="number" id="cfg-daily-limit" value="200">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="cfg-batch-size">Tamaño de Lote:</label>
+                    <input type="number" id="cfg-batch-size" value="15">
+                </div>
+            </div>
+
+            <!-- Módulo 2.1: Horarios Laborales -->
+            <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-hairline);">
+                <h4 style="font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="clock" style="width: 16px; height: 16px; color: var(--accent-pink);"></i> Horario Laboral de Operación
+                </h4>
+                <div style="display: flex; align-items: center; gap: 8px; margin: 8px 0 10px 0;">
+                    <input type="checkbox" id="cfg-work-schedule-enabled" style="width: 16px; height: 16px; cursor: pointer;">
+                    <label for="cfg-work-schedule-enabled" style="margin: 0; cursor: pointer; font-size: 12.5px;">Habilitar pausa automática fuera de horario</label>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="cfg-work-schedule-start" style="font-size: 11.5px;">Hora de Inicio:</label>
+                        <input type="time" id="cfg-work-schedule-start" value="09:00">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="cfg-work-schedule-end" style="font-size: 11.5px;">Hora de Fin:</label>
+                        <input type="time" id="cfg-work-schedule-end" value="18:00">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Módulo 2.2: Modo Calentamiento -->
+            <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-hairline);">
+                <h4 style="font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="flame" style="width: 16px; height: 16px; color: var(--accent-pink);"></i> Modo Calentamiento Progresivo
+                </h4>
+                <div style="display: flex; align-items: center; gap: 8px; margin: 8px 0 10px 0;">
+                    <input type="checkbox" id="cfg-warmup-enabled" style="width: 16px; height: 16px; cursor: pointer;">
+                    <label for="cfg-warmup-enabled" style="margin: 0; cursor: pointer; font-size: 12.5px;">Activar calentamiento progresivo</label>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="cfg-warmup-day" style="font-size: 11.5px;">Día Actual:</label>
+                        <input type="number" id="cfg-warmup-day" value="1" min="1">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="cfg-warmup-increment" style="font-size: 11.5px;">Incremento/Día:</label>
+                        <input type="number" id="cfg-warmup-increment" value="15" min="1">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="cfg-warmup-max" style="font-size: 11.5px;">Límite Objetivo:</label>
+                        <input type="number" id="cfg-warmup-max" value="200" min="10">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border-hairline);">
+                <button id="modal-profile-config-cancel" class="btn-secondary">Cancelar</button>
+                <button id="modal-profile-config-save" class="btn-primary">Guardar Configuración</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" style="position: fixed; bottom: 24px; right: 24px; z-index: 99999; display: flex; flex-direction: column; gap: 8px;"></div>
+
+    <script src="js/lucide.min.js?v=20260909_live"></script>
+    <script src="js/icons-helper.js?v=20260909_live"></script>
+    <script src="js/dialog.js?v=20260909_live"></script>
+    <script src="js/app.js?v=20260909_live"></script>
+</body>
+</html>

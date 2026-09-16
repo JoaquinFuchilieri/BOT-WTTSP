@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Contacto — F-Dispatch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="contact-wrapper">
+        <div class="contact-card">
+            <img src="assets/logo.png" alt="F-Dispatch Logo" class="login-brand-logo" onerror="this.onerror=null; this.src='assets/logo.jpg';">
+            <h2 style="font-size: 22px; font-weight: 700; letter-spacing: -0.025em; color: var(--text-primary);">Contacta con nuestro equipo</h2>
+            <p style="font-size: 13.5px; color: var(--text-secondary); margin-top: 6px;">Lleva la automatización de tu empresa al siguiente nivel.</p>
+
+            <div class="contact-channels">
+                <!-- Tarjeta Interactiva de Email (Abre cliente de correo) -->
+                <a href="mailto:joaquin.fuchilieri@gmail.com" class="contact-item" id="email-card" title="Enviar correo a joaquin.fuchilieri@gmail.com">
+                    <div class="contact-icon-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="20" height="16" x="2" y="4" rx="2"/>
+                            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                        </svg>
+                    </div>
+                    <div class="contact-info">
+                        <div class="contact-label">Gmail / Correo Oficial</div>
+                        <div class="contact-value">joaquin.fuchilieri@gmail.com</div>
+                    </div>
+                    <div class="contact-arrow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="7" y1="17" x2="17" y2="7"/>
+                            <polyline points="7 7 17 7 17 17"/>
+                        </svg>
+                    </div>
+                </a>
+
+                <!-- Tarjeta Interactiva de Instagram (Outline SVG y abre nueva pestaña) -->
+                <a href="https://instagram.com/joaquin_fuchilieri" target="_blank" rel="noopener noreferrer" class="contact-item" id="instagram-card" title="Ver Instagram Oficial @joaquin_fuchilieri">
+                    <div class="contact-icon-box">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                            <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+                        </svg>
+                    </div>
+                    <div class="contact-info">
+                        <div class="contact-label">Instagram Oficial</div>
+                        <div class="contact-value">@joaquin_fuchilieri</div>
+                    </div>
+                    <div class="contact-arrow">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="7" y1="17" x2="17" y2="7"/>
+                            <polyline points="7 7 17 7 17 17"/>
+                        </svg>
+                    </div>
+                </a>
+            </div>
+
+            <a href="index.html" class="back-to-login">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                Volver al inicio de sesión
+            </a>
+
+            <div class="fuchi-watermark" style="margin-top: 18px;">powered by Fuchi</div>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.contact-item').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (window.api && typeof window.api.openExternal === 'function') {
+                    e.preventDefault();
+                    window.api.openExternal(link.href);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

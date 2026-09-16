@@ -6,14 +6,18 @@ let _statusHandler = null;
 let _progressHandler = null;
 
 contextBridge.exposeInMainWorld('api', {
+  // ============ USERS & OPERATORS ============
+  getUsers: () => ipcRenderer.invoke('users:getAll'),
+
   // ============ PROFILES ============
-  getProfiles: () => ipcRenderer.invoke('profiles:getAll'),
-  createProfile: (name) => ipcRenderer.invoke('profiles:create', name),
+  getProfiles: (assignedUserId = null) => ipcRenderer.invoke('profiles:getAll', assignedUserId),
+  createProfile: (name, assignedUserId = null) => ipcRenderer.invoke('profiles:create', name, assignedUserId),
   deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
 
   // ============ WHATSAPP ============
   connectWhatsApp: (profileId) => ipcRenderer.invoke('wa:connect', profileId),
   disconnectWhatsApp: (profileId) => ipcRenderer.invoke('wa:disconnect', profileId),
+  unlinkWhatsApp: (profileId) => ipcRenderer.invoke('wa:unlink', profileId),
   getWhatsAppSessionState: (profileId) => ipcRenderer.invoke('wa:getSessionState', profileId),
 
   // ============ QUEUE ============
@@ -23,6 +27,8 @@ contextBridge.exposeInMainWorld('api', {
   clearQueue: (profileId) => ipcRenderer.invoke('queue:clear', profileId),
   retryErrors: (profileId) => ipcRenderer.invoke('queue:retryErrors', profileId),
   clearErrors: (profileId) => ipcRenderer.invoke('queue:clearErrors', profileId),
+  parsePdf: (arrayBuffer) => ipcRenderer.invoke('file:parsePdf', arrayBuffer),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 
   // ============ MESSAGES ============
   saveMessage: (profileId, text) => ipcRenderer.invoke('message:save', profileId, text),
@@ -32,10 +38,16 @@ contextBridge.exposeInMainWorld('api', {
   startBot: (profileId) => ipcRenderer.invoke('bot:start', profileId),
   stopBot: (profileId) => ipcRenderer.invoke('bot:stop', profileId),
   isBotRunning: (profileId) => ipcRenderer.invoke('bot:isRunning', profileId),
+  getAllBotStates: () => ipcRenderer.invoke('bot:getAllStates'),
+  startAllBots: (profileIds) => ipcRenderer.invoke('bot:startAll', profileIds),
+  stopAllBots: () => ipcRenderer.invoke('bot:stopAll'),
 
-  // ============ DELAY SETTINGS ============
+  // ============ DELAY SETTINGS & OPERATIONAL CONTROLS ============
   getDelaySettings: (profileId) => ipcRenderer.invoke('settings:get', profileId),
   updateDelaySettings: (profileId, settings) => ipcRenderer.invoke('settings:update', profileId, settings),
+  getAnnouncements: () => ipcRenderer.invoke('announcements:getActive'),
+  resumeEarlyWarning: (profileId) => ipcRenderer.invoke('bot:resumeEarlyWarning', profileId),
+  getHelpManual: () => ipcRenderer.invoke('help:getManual'),
 
   // ============ EVENT LISTENERS (Main → Renderer) ============
   onQRCode: (callback) => {
@@ -73,5 +85,13 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.removeListener('bot:progress', _progressHandler);
       _progressHandler = null;
     }
-  }
+  },
+
+  // ============ AUTH & CONNECTIVITY ============
+  authLogin: (email, password) => ipcRenderer.invoke('auth:login', email, password),
+  authLogout: () => ipcRenderer.invoke('auth:logout'),
+  authGetSession: () => ipcRenderer.invoke('auth:getSession'),
+  onAuthKill: (callback) => ipcRenderer.on('auth:kill', (_event, reason) => callback(reason)),
+  onConnectivityLost: (callback) => ipcRenderer.on('connectivity:lost', () => callback()),
+  onConnectivityRestored: (callback) => ipcRenderer.on('connectivity:restored', () => callback())
 });
