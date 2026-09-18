@@ -254,6 +254,7 @@ function handleLogout() {
     if (metricsPollInterval) clearInterval(metricsPollInterval);
     token = null;
     currentUser = null;
+    window.currentUser = null;
     localStorage.removeItem('saas_token');
     localStorage.removeItem('saas_active_view');
     localStorage.removeItem('saas_active_company_id');
@@ -268,6 +269,7 @@ function showLogin() {
 }
 
 function showAppShell() {
+    window.currentUser = currentUser;
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('app-section').classList.remove('hidden');
 
@@ -565,12 +567,12 @@ async function loadCompaniesDirectory() {
                             <strong>${c.user_count} / ${c.user_limit}</strong>
                         </div>
                         <div class="company-meta-row">
-                            <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('smartphone', 14)} WA por Operador:</span>
+                            <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('smartphone', 14)} WA por Operador (Ref):</span>
                             <strong>${c.max_profiles_per_operator || 3} máx</strong>
                         </div>
                         <div class="company-meta-row">
-                            <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('bot', 14)} Cuentas Creadas:</span>
-                            <strong>${c.profile_count}</strong>
+                            <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('bot', 14)} Cuentas WA Contratadas:</span>
+                            <strong>${c.profile_count} / ${c.whatsapp_limit || 10}</strong>
                         </div>
                         <div class="company-meta-row">
                             <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('bar-chart-2', 14)} Total Mensajes:</span>
@@ -584,7 +586,7 @@ async function loadCompaniesDirectory() {
                         ${getLucideSvg('arrow-right', 14)} Entrar a Gestionar
                     </button>
                     <div style="display: flex; gap: 8px;">
-                        <button title="Configuración de Límites" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyLimitsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.user_limit || 5}, ${c.max_profiles_per_operator || 3})">
+                        <button title="Configuración de Límites" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyLimitsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.user_limit || 5}, ${c.max_profiles_per_operator || 3}, ${c.whatsapp_limit || 10})">
                             ${getLucideSvg('sliders', 13)} Límites
                         </button>
                         <button class="${isSuspended ? 'btn-success' : 'btn-danger'}" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="toggleCompanyStatus('${c.id}', '${c.status}')">
@@ -606,11 +608,13 @@ async function loadCompaniesDirectory() {
     }
 }
 
-function openCompanyLimitsModal(companyId, companyName, currentLimit, currentMaxProfiles) {
+function openCompanyLimitsModal(companyId, companyName, currentLimit, currentMaxProfiles, currentWhatsappLimit) {
     document.getElementById('limits-company-id').value = companyId;
     document.getElementById('limits-company-name').textContent = `Empresa: ${companyName}`;
     document.getElementById('limits-user-limit').value = currentLimit;
     document.getElementById('limits-max-profiles').value = currentMaxProfiles;
+    const waInput = document.getElementById('limits-whatsapp-limit');
+    if (waInput) waInput.value = currentWhatsappLimit !== undefined ? currentWhatsappLimit : 10;
     showModal('modal-company-limits');
 }
 
@@ -618,15 +622,21 @@ async function handleSaveCompanyLimits() {
     const id = document.getElementById('limits-company-id').value;
     const userLimit = document.getElementById('limits-user-limit').value;
     const maxProfilesPerOperator = document.getElementById('limits-max-profiles').value;
+    const waInput = document.getElementById('limits-whatsapp-limit');
+    const whatsappLimit = waInput ? waInput.value : null;
 
     if (!userLimit || !maxProfilesPerOperator) {
         return toast('Completá ambos límites', 'error');
     }
 
     try {
+        const body = { userLimit, maxProfilesPerOperator };
+        if (whatsappLimit !== null && whatsappLimit !== '') {
+            body.whatsappLimit = parseInt(whatsappLimit, 10);
+        }
         await api(`/companies/${id}`, {
             method: 'PATCH',
-            body: JSON.stringify({ userLimit, maxProfilesPerOperator })
+            body: JSON.stringify(body)
         });
         hideModal('modal-company-limits');
         toast('Límites actualizados exitosamente');
@@ -805,16 +815,17 @@ async function loadUsersSection(targetRole) {
             tbody.innerHTML = '';
             admins.forEach(a => {
                 const tr = document.createElement('tr');
+                const adminLimit = a.whatsapp_limit !== null && a.whatsapp_limit !== undefined ? a.whatsapp_limit : (a.company_max_profiles || 2);
                 tr.innerHTML = `
                     <td><strong>${a.email}</strong></td>
                     <td><span class="badge connected">Administrador</span></td>
                     <td><span class="badge ${a.status === 'active' ? 'active' : 'disabled'}">${a.status}</span></td>
                     <td>${new Date(a.created_at).toLocaleDateString()}</td>
                     <td>
-                        <button class="btn-primary" style="padding: 4px 10px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" onclick="openNestedOperatorProfiles('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">
-                            ${getLucideSvg('smartphone', 12)} Cuentas WA (${a.assigned_profiles || 0})
+                        <button class="btn-primary" style="padding: 4px 10px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Cupo: ${a.assigned_profiles || 0} de ${adminLimit} cuentas" onclick="openNestedOperatorProfiles('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">
+                            ${getLucideSvg('smartphone', 12)} Cuentas WA (${a.assigned_profiles || 0} / ${adminLimit})
                         </button>
-                        <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openEditUserModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">Editar Credenciales</button>
+                        <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openEditUserModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">Editar</button>
                         <button class="${a.status === 'active' ? 'btn-danger' : 'btn-success'}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleUserStatus('${a.id}', '${a.status}')">${a.status === 'active' ? 'Desactivar' : 'Activar'}</button>
                         <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteUser('${a.id}')">Eliminar</button>
                     </td>
@@ -860,9 +871,11 @@ async function loadUsersSection(targetRole) {
                     ? `<span class="badge connected" style="display:inline-flex; align-items:center; gap:4px; font-weight:600;">${getLucideSvg('shield-check', 12)} Administrador</span>`
                     : `<span class="badge" style="background:rgba(255,255,255,0.08); color:var(--text-secondary); display:inline-flex; align-items:center; gap:4px;">${getLucideSvg('user', 12)} Operador</span>`;
 
+                const opLimit = u.whatsapp_limit !== null && u.whatsapp_limit !== undefined ? u.whatsapp_limit : (u.company_max_profiles || 2);
+
                 const waButton = `
-                    <button class="btn-primary" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;" onclick="openNestedOperatorProfiles('${u.id}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')">
-                        ${getLucideSvg('smartphone', 13)} Ver cuentas WA (${u.assigned_profiles || 0})
+                    <button class="btn-primary" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;" title="Cupo: ${u.assigned_profiles || 0} de ${opLimit} cuentas" onclick="openNestedOperatorProfiles('${u.id}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')">
+                        ${getLucideSvg('smartphone', 13)} Ver cuentas WA (${u.assigned_profiles || 0} / ${opLimit})
                     </button>
                 `;
 
@@ -972,12 +985,15 @@ async function loadNestedOperatorProfiles() {
         const allProfiles = await api(`/profiles${queryParam}`);
         const operatorProfiles = allProfiles.filter(p => p.assigned_user_id === activeNestedOperatorId);
 
-        // Get max_profiles_per_operator for this company
-        let maxAllowed = 3;
-        if (currentUser.role === 'superadmin') {
+        // Get individual limit for this operator or admin
+        const targetOp = Array.isArray(companyUsers) ? companyUsers.find(u => u.id === activeNestedOperatorId) : null;
+        let maxAllowed = 2;
+        if (targetOp && targetOp.whatsapp_limit !== null && targetOp.whatsapp_limit !== undefined) {
+            maxAllowed = targetOp.whatsapp_limit;
+        } else if (currentUser && currentUser.role === 'superadmin') {
             const comp = companies.find(c => c.id === activeCompanyId);
-            if (comp) maxAllowed = comp.max_profiles_per_operator || 3;
-        } else if (currentUser.maxProfilesPerOperator) {
+            if (comp) maxAllowed = comp.max_profiles_per_operator || 2;
+        } else if (currentUser && currentUser.maxProfilesPerOperator) {
             maxAllowed = currentUser.maxProfilesPerOperator;
         }
 
@@ -1024,6 +1040,21 @@ async function loadNestedOperatorProfiles() {
 
 function openAddNestedProfileModal() {
     if (!activeNestedOperatorId) return toast('Seleccioná un operador o administrador primero', 'error');
+
+    // Check if operator already reached individual quota
+    const targetOp = Array.isArray(companyUsers) ? companyUsers.find(u => u.id === activeNestedOperatorId) : null;
+    let maxAllowed = 2;
+    if (targetOp && targetOp.whatsapp_limit !== null && targetOp.whatsapp_limit !== undefined) {
+        maxAllowed = targetOp.whatsapp_limit;
+    } else if (currentUser && currentUser.maxProfilesPerOperator) {
+        maxAllowed = currentUser.maxProfilesPerOperator;
+    }
+
+    const currentCount = targetOp ? (targetOp.assigned_profiles || 0) : 0;
+    if (currentCount >= maxAllowed && (!currentUser || currentUser.role !== 'superadmin')) {
+        return toast(`Este operador ya alcanzó su límite máximo de cuentas (${currentCount} / ${maxAllowed}). Puedes ampliar su cupo editando al usuario.`, 'warning');
+    }
+
     const roleLabel = activeNestedOperatorRole === 'admin' ? 'administrador' : 'operador';
     document.getElementById('nested-profile-operator-label').textContent = `Creando cuenta para el ${roleLabel}: ${activeNestedOperatorEmail}`;
     document.getElementById('new-nested-profile-name').value = '';
@@ -1091,6 +1122,32 @@ function openCreateUserModal(defaultRole = 'user') {
         }
     }
 
+    // WhatsApp limit configuration
+    const limitInput = document.getElementById('new-user-whatsapp-limit');
+    const limitHint = document.getElementById('user-whatsapp-limit-hint');
+    let companyMaxWA = 10;
+    let defaultOpLimit = 2;
+
+    if (currentUser && currentUser.role === 'superadmin') {
+        const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
+        if (comp) {
+            companyMaxWA = comp.whatsapp_limit || 10;
+            defaultOpLimit = comp.max_profiles_per_operator || 2;
+        }
+    } else if (currentUser) {
+        companyMaxWA = currentUser.companyWhatsappLimit || 10;
+        defaultOpLimit = currentUser.maxProfilesPerOperator || 2;
+    }
+
+    if (limitInput) {
+        limitInput.value = defaultOpLimit;
+        limitInput.max = companyMaxWA;
+        limitInput.min = 0;
+    }
+    if (limitHint) {
+        limitHint.textContent = `(Cupo máx empresa: ${companyMaxWA})`;
+    }
+
     const hint = document.getElementById('pass-hint');
     if (hint) hint.textContent = '(obligatorio)';
 
@@ -1142,6 +1199,35 @@ function openEditUserModal(userId, fallbackEmail, fallbackRole) {
         }
     }
 
+    // WhatsApp limit configuration for edit
+    const limitInput = document.getElementById('new-user-whatsapp-limit');
+    const limitHint = document.getElementById('user-whatsapp-limit-hint');
+
+    let companyMaxWA = 10;
+    if (currentUser && currentUser.role === 'superadmin') {
+        const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
+        if (comp) companyMaxWA = comp.whatsapp_limit || 10;
+    } else if (currentUser) {
+        companyMaxWA = currentUser.companyWhatsappLimit || 10;
+    }
+    if (user && user.company_whatsapp_limit) {
+        companyMaxWA = user.company_whatsapp_limit;
+    }
+
+    const assignedCount = user ? (parseInt(user.assigned_profiles, 10) || 0) : 0;
+    const userLimit = (user && user.whatsapp_limit !== null && user.whatsapp_limit !== undefined)
+        ? user.whatsapp_limit
+        : (user && user.company_max_profiles ? user.company_max_profiles : 2);
+
+    if (limitInput) {
+        limitInput.value = userLimit;
+        limitInput.max = companyMaxWA;
+        limitInput.min = assignedCount; // Cannot set lower than currently active accounts
+    }
+    if (limitHint) {
+        limitHint.textContent = `(Cupo máx empresa: ${companyMaxWA} | Cuentas actuales: ${assignedCount})`;
+    }
+
     const hint = document.getElementById('pass-hint');
     if (hint) hint.textContent = '(dejar en blanco para conservar la actual)';
 
@@ -1154,7 +1240,7 @@ function openEditUserModal(userId, fallbackEmail, fallbackRole) {
     const saveBtn = document.getElementById('modal-user-save');
     if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = 'Guardar Credenciales';
+        saveBtn.textContent = 'Guardar';
     }
 
     showModal('modal-user');
@@ -1167,6 +1253,7 @@ async function handleSaveUser() {
     const emailInput = document.getElementById('new-user-email');
     const passInput = document.getElementById('new-user-pass');
     const roleSelect = document.getElementById('new-user-role');
+    const limitInput = document.getElementById('new-user-whatsapp-limit');
     const errorEl = document.getElementById('modal-user-error');
     const saveBtn = document.getElementById('modal-user-save');
     const idInput = document.getElementById('edit-user-id');
@@ -1175,9 +1262,15 @@ async function handleSaveUser() {
     const password = passInput ? passInput.value : '';
     const role = roleSelect ? roleSelect.value : 'user';
     const targetUserId = editingUserId || (idInput ? idInput.value : null);
+    const rawLimit = limitInput ? limitInput.value.trim() : '';
+    const whatsappLimit = rawLimit !== '' ? parseInt(rawLimit, 10) : null;
 
     if (!email) return toast('Completá el correo electrónico', 'error');
     if (!targetUserId && !password) return toast('Ingresá una contraseña para el nuevo usuario', 'error');
+
+    if (whatsappLimit !== null && (isNaN(whatsappLimit) || whatsappLimit < 0)) {
+        return toast('El límite de cuentas de WhatsApp debe ser un número entero mayor o igual a 0', 'error');
+    }
 
     // Strict Email Regex Validation
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -1200,17 +1293,26 @@ async function handleSaveUser() {
         }
 
         if (targetUserId) {
-            const body = { email, role };
+            const body = { email };
+            if (currentUser && currentUser.role === 'superadmin') {
+                body.role = role;
+            }
             if (password && password.trim() !== '') {
                 body.password = password;
+            }
+            if (whatsappLimit !== null) {
+                body.whatsapp_limit = whatsappLimit;
             }
             await api(`/users/${targetUserId}`, {
                 method: 'PATCH',
                 body: JSON.stringify(body)
             });
-            toast('Credenciales actualizadas exitosamente', 'success');
+            toast('Usuario y límite actualizados exitosamente', 'success');
         } else {
             const body = { email, password, role };
+            if (whatsappLimit !== null) {
+                body.whatsapp_limit = whatsappLimit;
+            }
             if (currentUser && currentUser.role === 'superadmin') {
                 body.companyId = activeCompanyId;
             }
@@ -1228,6 +1330,9 @@ async function handleSaveUser() {
         await loadUsersSection('user');
         if (currentUser && currentUser.role === 'superadmin') {
             await loadUsersSection('admin');
+        }
+        if (activeNestedOperatorId) {
+            await loadNestedOperatorProfiles();
         }
     } catch (err) {
         if (errorEl) {

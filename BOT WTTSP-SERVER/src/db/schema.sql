@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'user', -- superadmin, admin, user
+    whatsapp_limit INTEGER DEFAULT NULL, -- specific WhatsApp accounts quota for this operator
     status VARCHAR(20) DEFAULT 'active', -- active, disabled
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

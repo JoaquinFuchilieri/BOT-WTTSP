@@ -16,9 +16,9 @@ router.post('/login', loginRateLimiter, async (req, res) => {
 
   try {
     const userRes = await db.query(
-      `SELECT u.id, u.email, u.password_hash, u.role, u.status as user_status,
+      `SELECT u.id, u.email, u.password_hash, u.role, u.status as user_status, u.whatsapp_limit,
               c.id as company_id, c.name as company_name, c.status as company_status,
-              c.user_limit, c.max_profiles_per_operator
+              c.user_limit, c.whatsapp_limit as company_whatsapp_limit, c.max_profiles_per_operator
        FROM users u
        LEFT JOIN companies c ON u.company_id = c.id
        WHERE u.email = $1`,
@@ -77,7 +77,9 @@ router.post('/login', loginRateLimiter, async (req, res) => {
         companyId: user.company_id,
         companyName: user.company_name,
         userLimit: user.user_limit || 5,
-        maxProfilesPerOperator: user.max_profiles_per_operator || 3
+        companyWhatsappLimit: user.company_whatsapp_limit || 10,
+        maxProfilesPerOperator: user.max_profiles_per_operator || 3,
+        whatsappLimit: user.whatsapp_limit !== null && user.whatsapp_limit !== undefined ? user.whatsapp_limit : (user.max_profiles_per_operator || 3)
       }
     });
   } catch (err) {
@@ -135,9 +137,9 @@ router.post('/refresh', async (req, res) => {
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const userRes = await db.query(
-      `SELECT u.id, u.email, u.role, u.status as user_status,
+      `SELECT u.id, u.email, u.role, u.status as user_status, u.whatsapp_limit,
               c.id as company_id, c.name as company_name, c.status as company_status,
-              c.user_limit, c.max_profiles_per_operator
+              c.user_limit, c.whatsapp_limit as company_whatsapp_limit, c.max_profiles_per_operator
        FROM users u
        LEFT JOIN companies c ON u.company_id = c.id
        WHERE u.id = $1`,
@@ -157,7 +159,9 @@ router.get('/me', authenticateToken, async (req, res) => {
         companyId: u.company_id,
         companyName: u.company_name,
         userLimit: u.user_limit || 5,
-        maxProfilesPerOperator: u.max_profiles_per_operator || 3
+        companyWhatsappLimit: u.company_whatsapp_limit || 10,
+        maxProfilesPerOperator: u.max_profiles_per_operator || 3,
+        whatsappLimit: u.whatsapp_limit !== null && u.whatsapp_limit !== undefined ? u.whatsapp_limit : (u.max_profiles_per_operator || 3)
       }
     });
   } catch (err) {

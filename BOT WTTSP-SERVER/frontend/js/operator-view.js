@@ -18,8 +18,12 @@ async function loadOperatorBots() {
     try {
         operatorBots = await api('/profiles');
         
+        const myLimit = (window.currentUser && window.currentUser.whatsappLimit !== undefined && window.currentUser.whatsappLimit !== null)
+            ? window.currentUser.whatsappLimit
+            : ((window.currentUser && window.currentUser.maxProfilesPerOperator) || 2);
+
         if (countBadge) {
-            countBadge.textContent = `${operatorBots.length} Cuentas asignadas`;
+            countBadge.textContent = `${operatorBots.length} / ${myLimit} Cuentas asignadas`;
         }
 
         if (!operatorBots || operatorBots.length === 0) {
@@ -330,6 +334,14 @@ async function deleteBotInstance(profileId, profileName) {
  * Operator Create Bot Modal Handlers
  */
 function openCreateOperatorBotModal() {
+    const myLimit = (window.currentUser && window.currentUser.whatsappLimit !== undefined && window.currentUser.whatsappLimit !== null)
+        ? window.currentUser.whatsappLimit
+        : ((window.currentUser && window.currentUser.maxProfilesPerOperator) || 2);
+
+    if (operatorBots.length >= myLimit) {
+        return toast(`Has alcanzado tu límite máximo de ${myLimit} cuentas de WhatsApp asignadas. Solicita una ampliación a tu administrador.`, 'warning');
+    }
+
     const modal = document.getElementById('modal-create-operator-bot');
     const nameInput = document.getElementById('operator-bot-name');
     const msgInput = document.getElementById('operator-bot-message');
@@ -348,6 +360,14 @@ function closeCreateOperatorBotModal() {
 }
 
 async function handleCreateOperatorBot() {
+    const myLimit = (window.currentUser && window.currentUser.whatsappLimit !== undefined && window.currentUser.whatsappLimit !== null)
+        ? window.currentUser.whatsappLimit
+        : ((window.currentUser && window.currentUser.maxProfilesPerOperator) || 2);
+
+    if (operatorBots.length >= myLimit) {
+        return toast(`Has alcanzado tu límite máximo de ${myLimit} cuentas de WhatsApp permitidas.`, 'warning');
+    }
+
     const nameInput = document.getElementById('operator-bot-name');
     const msgInput = document.getElementById('operator-bot-message');
     const name = nameInput ? nameInput.value.trim() : '';

@@ -74,11 +74,12 @@ router.post('/', async (req, res) => {
 
   try {
     // 1. Check Company-wide WhatsApp account limit
-    const compRes = await db.query('SELECT whatsapp_limit, user_limit FROM companies WHERE id = $1', [compId]);
+    const compRes = await db.query('SELECT whatsapp_limit, user_limit, max_profiles_per_operator FROM companies WHERE id = $1', [compId]);
     if (compRes.rows.length === 0) {
       return res.status(404).json({ error: 'Empresa no encontrada' });
     }
     const maxCompanyWhatsApp = compRes.rows[0].whatsapp_limit || 10;
+    const defaultPerOperator = compRes.rows[0].max_profiles_per_operator || 2;
 
     const countRes = await db.query('SELECT COUNT(*) FROM profiles WHERE company_id = $1', [compId]);
     const currentCompanyCount = parseInt(countRes.rows[0].count, 10);
@@ -91,11 +92,34 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // 2. Validate assigned user belongs to this company
+    // 2. Validate assigned user belongs to this company and verify individual operator limit
     if (effectiveAssignedUserId) {
-      const userCheck = await db.query('SELECT id, email, role FROM users WHERE id = $1 AND company_id = $2', [effectiveAssignedUserId, compId]);
+      const userCheck = await db.query(
+        'SELECT id, email, role, whatsapp_limit FROM users WHERE id = $1 AND company_id = $2',
+        [effectiveAssignedUserId, compId]
+      );
       if (userCheck.rows.length === 0) {
         return res.status(400).json({ error: 'El operador asignado no pertenece a esta empresa' });
+      }
+
+      const userObj = userCheck.rows[0];
+      const operatorLimit = userObj.whatsapp_limit !== null && userObj.whatsapp_limit !== undefined
+        ? parseInt(userObj.whatsapp_limit, 10)
+        : defaultPerOperator;
+
+      const opCountRes = await db.query(
+        'SELECT COUNT(*) FROM profiles WHERE assigned_user_id = $1',
+        [effectiveAssignedUserId]
+      );
+      const currentOperatorCount = parseInt(opCountRes.rows[0].count, 10);
+
+      if (currentOperatorCount >= operatorLimit && req.user.role !== 'superadmin') {
+        const who = req.user.role === 'user' ? 'tu' : `este operador (${userObj.email})`;
+        return res.status(403).json({
+          error: `Se ha alcanzado el límite máximo de cuentas de WhatsApp asignado a ${who} (${operatorLimit} máx permitidas).`,
+          max: operatorLimit,
+          code: 'OPERATOR_WHATSAPP_LIMIT_REACHED'
+        });
       }
     }
 
@@ -186,6 +210,32 @@ router.patch('/:id/config', async (req, res) => {
 
     // Admin or SuperAdmin can reassign operator
     if (assigned_user_id !== undefined && req.user.role !== 'user') {
+      if (assigned_user_id) {
+        const targetOp = await db.query(
+          `SELECT u.id, u.email, u.whatsapp_limit, c.max_profiles_per_operator
+           FROM users u
+           JOIN companies c ON u.company_id = c.id
+           WHERE u.id = $1`,
+          [assigned_user_id]
+        );
+        if (targetOp.rows.length === 0) {
+          return res.status(400).json({ error: 'Operador no encontrado' });
+        }
+        const opObj = targetOp.rows[0];
+        const opLimit = opObj.whatsapp_limit !== null && opObj.whatsapp_limit !== undefined
+          ? parseInt(opObj.whatsapp_limit, 10)
+          : (opObj.max_profiles_per_operator || 2);
+
+        const currentOpProfiles = await db.query(
+          'SELECT COUNT(*) FROM profiles WHERE assigned_user_id = $1 AND id != $2',
+          [assigned_user_id, id]
+        );
+        if (parseInt(currentOpProfiles.rows[0].count, 10) >= opLimit && req.user.role !== 'superadmin') {
+          return res.status(403).json({
+            error: `El operador ${opObj.email} ya alcanzó su límite asignado (${opLimit} cuentas de WhatsApp máx).`
+          });
+        }
+      }
       fields.push(`assigned_user_id = $${idx++}`);
       values.push(assigned_user_id || null);
     }
