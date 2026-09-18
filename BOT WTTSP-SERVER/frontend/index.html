@@ -344,6 +344,8 @@
                                     <th>Email</th>
                                     <th>Rol</th>
                                     <th>Estado</th>
+                                    <th>Cupo WhatsApp</th>
+                                    <th>Cuentas Creadas</th>
                                     <th>Fecha Alta</th>
                                     <th>Acciones</th>
                                 </tr>
@@ -371,7 +373,8 @@
                                     <th>Usuario / Email</th>
                                     <th>Rol</th>
                                     <th>Estado</th>
-                                    <th>Cuentas WA</th>
+                                    <th>Cupo WhatsApp</th>
+                                    <th>Cuentas Creadas</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -385,7 +388,12 @@
                     <div class="panel-header">
                         <div>
                             <h3 id="nested-operator-title">Cuentas de WhatsApp de [Usuario]</h3>
-                            <p style="font-size: 12.5px; color: var(--text-secondary);" id="nested-operator-quota">Límite: cargando...</p>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+                                <p style="font-size: 12.5px; color: var(--text-secondary);" id="nested-operator-quota">Límite: cargando...</p>
+                                <button id="btn-edit-nested-quota" class="btn-secondary" style="padding: 2px 9px; font-size: 11px; border-color: rgba(224, 77, 128, 0.4); color: var(--accent-pink); display: inline-flex; align-items: center; gap: 4px;" title="Ajustar cupo de cuentas de WhatsApp">
+                                    <i data-lucide="sliders" style="width: 12px; height: 12px;"></i> Asignar Cupo
+                                </button>
+                            </div>
                         </div>
                         <div class="flex gap-10">
                             <button id="btn-add-nested-profile" class="btn-primary"><i data-lucide="plus-circle"></i> Agregar Cuenta</button>
@@ -982,6 +990,57 @@
         </div>
     </div>
 
+    <!-- Modal: Asignar Cupo Individual de WhatsApp a Operador -->
+    <div id="modal-operator-whatsapp-quota" class="modal hidden">
+        <div class="modal-card" style="max-width: 480px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <span style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(224, 77, 128, 0.15); color: var(--accent-pink); border: 1px solid rgba(224, 77, 128, 0.3);">
+                    <i data-lucide="sliders" style="width: 18px; height: 18px;"></i>
+                </span>
+                <div>
+                    <h3 style="font-size: 17px; font-weight: 700;">Asignar Cupo de WhatsApp</h3>
+                    <p id="quota-modal-user-email" style="font-size: 13px; color: var(--accent-pink); font-weight: 600;"></p>
+                </div>
+            </div>
+            <input type="hidden" id="quota-modal-user-id">
+
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-hairline); border-radius: 12px; padding: 14px; margin: 16px 0; font-size: 12.5px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: var(--text-secondary);">Cupo total contratado por la empresa:</span>
+                    <strong id="quota-modal-company-total" style="color: var(--text-primary); font-size: 13px;">--</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: var(--text-secondary);">Cuentas activas creadas por este operador:</span>
+                    <strong id="quota-modal-user-created" style="color: #4ade80; font-size: 13px;">--</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+                    <span style="color: var(--text-secondary);">Límite actual configurado:</span>
+                    <strong id="quota-modal-current-limit" style="color: var(--accent-pink); font-size: 13px;">--</strong>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="quota-modal-input-limit" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span>Nuevo cupo máximo permitido:</span>
+                    <span id="quota-modal-hint" style="font-size: 11px; color: var(--accent-pink); font-weight: 600;"></span>
+                </label>
+                <input type="number" id="quota-modal-input-limit" min="0" placeholder="Ej: 5" style="font-size: 16px; font-weight: 700; padding: 10px 14px;" required>
+                <small style="color: var(--text-tertiary); font-size: 11.5px; display: block; margin-top: 6px; line-height: 1.4;">
+                    Define cuántos números de WhatsApp puede registrar y operar este usuario. No puede ser menor a las cuentas que ya tiene creadas ni mayor al total de la empresa.
+                </small>
+            </div>
+
+            <p id="quota-modal-error" class="hidden" style="color: var(--accent-red); font-size: 12.5px; margin-bottom: 10px;"></p>
+
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
+                <button id="quota-modal-cancel" class="btn-secondary">Cancelar</button>
+                <button id="quota-modal-save" class="btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <i data-lucide="check"></i> Guardar Cupo
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Crear Perfil WA Anidado a Operador -->
     <div id="modal-nested-profile" class="modal hidden">
         <div class="modal-card">
@@ -1299,7 +1358,7 @@
     <script src="js/lucide.min.js?v=20260918_v1"></script>
     <script src="js/icons-helper.js?v=20260918_v1"></script>
     <script src="js/dialog.js?v=20260918_v1"></script>
-    <script src="js/app.js?v=20260918_v1"></script>
+    <script src="js/app.js?v=20260918_v3"></script>
     <script src="js/operator-view.js?v=20260918_v2"></script>
     <script src="js/distribution-view.js?v=20260918_v1"></script>
 </body>

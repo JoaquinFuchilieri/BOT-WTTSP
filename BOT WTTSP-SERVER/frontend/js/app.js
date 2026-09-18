@@ -80,6 +80,28 @@ function setupEventListeners() {
     on('modal-company-limits', 'click', (e) => { if (e.target.id === 'modal-company-limits') hideModal('modal-company-limits'); });
     on('modal-company', 'click', (e) => { if (e.target.id === 'modal-company') hideModal('modal-company'); });
 
+    // Dedicated Operator WhatsApp Quota Modal
+    on('quota-modal-cancel', 'click', () => hideModal('modal-operator-whatsapp-quota'));
+    on('quota-modal-save', 'click', handleSaveOperatorQuota);
+    on('modal-operator-whatsapp-quota', 'click', (e) => { if (e.target.id === 'modal-operator-whatsapp-quota') hideModal('modal-operator-whatsapp-quota'); });
+    on('quota-modal-input-limit', 'keydown', (e) => { if (e.key === 'Enter') handleSaveOperatorQuota(); });
+    on('btn-edit-nested-quota', 'click', () => {
+        if (!activeNestedOperatorId) return;
+        const targetUser = Array.isArray(companyUsers) ? companyUsers.find(u => u.id === activeNestedOperatorId) : null;
+        let companyMaxWA = 10;
+        if (currentUser && currentUser.role === 'superadmin') {
+            const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
+            if (comp) companyMaxWA = comp.whatsapp_limit || 10;
+        } else if (currentUser) {
+            companyMaxWA = currentUser.companyWhatsappLimit || 10;
+        }
+        const assigned = targetUser ? (parseInt(targetUser.assigned_profiles, 10) || 0) : 0;
+        const currentLimit = targetUser && targetUser.whatsapp_limit !== null && targetUser.whatsapp_limit !== undefined 
+            ? targetUser.whatsapp_limit 
+            : (targetUser ? targetUser.company_max_profiles : 2);
+        openOperatorQuotaModal(activeNestedOperatorId, activeNestedOperatorEmail, currentLimit, assigned, targetUser ? (targetUser.company_whatsapp_limit || companyMaxWA) : companyMaxWA);
+    });
+
     // 4. Nested Profile Modal (under Operator)
     on('btn-add-nested-profile', 'click', openAddNestedProfileModal);
     on('btn-close-nested-profiles', 'click', closeNestedOperatorProfiles);
@@ -816,16 +838,31 @@ async function loadUsersSection(targetRole) {
             admins.forEach(a => {
                 const tr = document.createElement('tr');
                 const adminLimit = a.whatsapp_limit !== null && a.whatsapp_limit !== undefined ? a.whatsapp_limit : (a.company_max_profiles || 2);
+                const assignedCount = parseInt(a.assigned_profiles, 10) || 0;
+                const aCompMax = a.company_whatsapp_limit || 10;
+                const quotaWidget = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="badge" style="background: rgba(224, 77, 128, 0.15); color: var(--accent-pink); border: 1px solid rgba(224, 77, 128, 0.3); font-weight: 700; font-size: 11.5px; padding: 4px 8px;">
+                            ${adminLimit} WhatsApps
+                        </span>
+                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 11px; border-color: rgba(224, 77, 128, 0.4); color: var(--accent-pink); display: inline-flex; align-items: center; gap: 4px;" title="Asignar cupo de cuentas a este administrador" onclick="openOperatorQuotaModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', ${adminLimit}, ${assignedCount}, ${aCompMax})">
+                            ${getLucideSvg('sliders', 12)} Asignar Cupo
+                        </button>
+                    </div>
+                `;
                 tr.innerHTML = `
                     <td><strong>${a.email}</strong></td>
                     <td><span class="badge connected">Administrador</span></td>
                     <td><span class="badge ${a.status === 'active' ? 'active' : 'disabled'}">${a.status}</span></td>
+                    <td>${quotaWidget}</td>
+                    <td>
+                        <button class="btn-primary" style="padding: 4px 10px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Cuentas: ${assignedCount} de ${adminLimit}" onclick="openNestedOperatorProfiles('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">
+                            ${getLucideSvg('smartphone', 12)} Ver cuentas (${assignedCount} / ${adminLimit})
+                        </button>
+                    </td>
                     <td>${new Date(a.created_at).toLocaleDateString()}</td>
                     <td>
-                        <button class="btn-primary" style="padding: 4px 10px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Cupo: ${a.assigned_profiles || 0} de ${adminLimit} cuentas" onclick="openNestedOperatorProfiles('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">
-                            ${getLucideSvg('smartphone', 12)} Cuentas WA (${a.assigned_profiles || 0} / ${adminLimit})
-                        </button>
-                        <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openEditUserModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">Editar</button>
+                        <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openEditUserModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">Editar Credenciales</button>
                         <button class="${a.status === 'active' ? 'btn-danger' : 'btn-success'}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleUserStatus('${a.id}', '${a.status}')">${a.status === 'active' ? 'Desactivar' : 'Activar'}</button>
                         <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteUser('${a.id}')">Eliminar</button>
                     </td>
@@ -858,8 +895,16 @@ async function loadUsersSection(targetRole) {
             const displayUsers = [...admins, ...operators];
 
             if (displayUsers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-secondary); padding: 18px;">No hay usuarios ni operadores registrados en la empresa.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-secondary); padding: 18px;">No hay usuarios ni operadores registrados en la empresa.</td></tr>';
                 return;
+            }
+
+            let companyMaxWA = 10;
+            if (currentUser && currentUser.role === 'superadmin') {
+                const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
+                if (comp) companyMaxWA = comp.whatsapp_limit || 10;
+            } else if (currentUser) {
+                companyMaxWA = currentUser.companyWhatsappLimit || 10;
             }
 
             displayUsers.forEach(u => {
@@ -871,16 +916,29 @@ async function loadUsersSection(targetRole) {
                     ? `<span class="badge connected" style="display:inline-flex; align-items:center; gap:4px; font-weight:600;">${getLucideSvg('shield-check', 12)} Administrador</span>`
                     : `<span class="badge" style="background:rgba(255,255,255,0.08); color:var(--text-secondary); display:inline-flex; align-items:center; gap:4px;">${getLucideSvg('user', 12)} Operador</span>`;
 
+                const assignedCount = parseInt(u.assigned_profiles, 10) || 0;
                 const opLimit = u.whatsapp_limit !== null && u.whatsapp_limit !== undefined ? u.whatsapp_limit : (u.company_max_profiles || 2);
+                const uCompMax = u.company_whatsapp_limit || companyMaxWA;
+
+                const quotaWidget = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="badge" style="background: rgba(224, 77, 128, 0.15); color: var(--accent-pink); border: 1px solid rgba(224, 77, 128, 0.3); font-weight: 700; font-size: 11.5px; padding: 4px 8px;">
+                            ${opLimit} WhatsApps
+                        </span>
+                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 11px; border-color: rgba(224, 77, 128, 0.4); color: var(--accent-pink); display: inline-flex; align-items: center; gap: 4px;" title="Asignar cupo de cuentas a este operador" onclick="openOperatorQuotaModal('${u.id}', '${u.email.replace(/'/g, "\\'")}', ${opLimit}, ${assignedCount}, ${uCompMax})">
+                            ${getLucideSvg('sliders', 12)} Asignar Cupo
+                        </button>
+                    </div>
+                `;
 
                 const waButton = `
-                    <button class="btn-primary" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;" title="Cupo: ${u.assigned_profiles || 0} de ${opLimit} cuentas" onclick="openNestedOperatorProfiles('${u.id}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')">
-                        ${getLucideSvg('smartphone', 13)} Ver cuentas WA (${u.assigned_profiles || 0} / ${opLimit})
+                    <button class="btn-primary" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;" title="Cupo: ${assignedCount} de ${opLimit} cuentas" onclick="openNestedOperatorProfiles('${u.id}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')">
+                        ${getLucideSvg('smartphone', 13)} Ver cuentas (${assignedCount} / ${opLimit})
                     </button>
                 `;
 
                 let actionButtons = `
-                    <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openEditUserModal('${u.id}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')">Editar</button>
+                    <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openEditUserModal('${u.id}', '${u.email.replace(/'/g, "\\'")}', '${u.role}')">Editar Credenciales</button>
                     <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 3px;" title="Reiniciar configuraciones de base de este usuario" onclick="resetUserDefaults('${u.id}', '${u.email.replace(/'/g, "\\'")}')">${getLucideSvg('rotate-ccw', 12)} Reset Base</button>
                 `;
 
@@ -905,6 +963,7 @@ async function loadUsersSection(targetRole) {
                     </td>
                     <td>${roleBadge}</td>
                     <td><span class="badge ${u.status === 'active' ? 'active' : 'disabled'}">${u.status === 'active' ? 'Activo' : 'Inactivo'}</span></td>
+                    <td>${quotaWidget}</td>
                     <td>${waButton}</td>
                     <td>${actionButtons}</td>
                 `;
@@ -1344,6 +1403,120 @@ async function handleSaveUser() {
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.textContent = targetUserId ? 'Guardar Credenciales' : 'Guardar';
+        }
+    }
+}
+
+// --- Gestión de Cupo Individual de WhatsApp a Operadores ---
+let quotaTargetUserId = null;
+let quotaTargetCompanyMax = 10;
+let quotaTargetAssignedCount = 0;
+
+function openOperatorQuotaModal(userId, userEmail, currentLimit, assignedCount = 0, companyMax = 10) {
+    quotaTargetUserId = userId;
+    quotaTargetCompanyMax = parseInt(companyMax, 10) || 10;
+    quotaTargetAssignedCount = parseInt(assignedCount, 10) || 0;
+
+    const emailEl = document.getElementById('quota-modal-user-email');
+    const compTotalEl = document.getElementById('quota-modal-company-total');
+    const userCreatedEl = document.getElementById('quota-modal-user-created');
+    const currentLimitEl = document.getElementById('quota-modal-current-limit');
+    const inputEl = document.getElementById('quota-modal-input-limit');
+    const hintEl = document.getElementById('quota-modal-hint');
+    const errEl = document.getElementById('quota-modal-error');
+    const idEl = document.getElementById('quota-modal-user-id');
+
+    if (idEl) idEl.value = userId;
+    if (emailEl) emailEl.textContent = userEmail || 'Operador';
+    if (compTotalEl) compTotalEl.textContent = `${quotaTargetCompanyMax} WhatsApps`;
+    if (userCreatedEl) userCreatedEl.textContent = `${quotaTargetAssignedCount} WhatsApps`;
+    
+    const parsedCurrentLimit = (currentLimit !== null && currentLimit !== undefined) ? parseInt(currentLimit, 10) : quotaTargetCompanyMax;
+    if (currentLimitEl) currentLimitEl.textContent = `${parsedCurrentLimit} WhatsApps`;
+
+    if (inputEl) {
+        inputEl.min = quotaTargetAssignedCount;
+        inputEl.max = quotaTargetCompanyMax;
+        inputEl.value = parsedCurrentLimit;
+    }
+    if (hintEl) {
+        hintEl.textContent = `Permitido: ${quotaTargetAssignedCount} a ${quotaTargetCompanyMax}`;
+    }
+    if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+    }
+
+    showModal('modal-operator-whatsapp-quota');
+    setTimeout(() => {
+        if (inputEl) {
+            inputEl.focus();
+            inputEl.select();
+        }
+    }, 100);
+}
+
+async function handleSaveOperatorQuota() {
+    if (!quotaTargetUserId) return;
+
+    const inputEl = document.getElementById('quota-modal-input-limit');
+    const errEl = document.getElementById('quota-modal-error');
+    const saveBtn = document.getElementById('quota-modal-save');
+
+    const newLimit = parseInt(inputEl ? inputEl.value : '', 10);
+
+    if (isNaN(newLimit) || newLimit < 0) {
+        const msg = 'Ingresa un número entero válido (mayor o igual a 0)';
+        if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+        return toast(msg, 'error');
+    }
+
+    if (newLimit < quotaTargetAssignedCount) {
+        const msg = `El cupo no puede ser menor a las cuentas que ya tiene creadas (${quotaTargetAssignedCount})`;
+        if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+        return toast(msg, 'error');
+    }
+
+    if (newLimit > quotaTargetCompanyMax) {
+        const msg = `El cupo no puede superar el total contratado de la empresa (${quotaTargetCompanyMax})`;
+        if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+        return toast(msg, 'error');
+    }
+
+    try {
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Guardando...`;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        await api(`/users/${quotaTargetUserId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ whatsapp_limit: newLimit })
+        });
+
+        toast(`Cupo de WhatsApp actualizado a ${newLimit} cuentas`, 'success');
+        hideModal('modal-operator-whatsapp-quota');
+
+        await loadUsersSection('user');
+        if (currentUser && currentUser.role === 'superadmin') {
+            await loadUsersSection('admin');
+        }
+        if (activeNestedOperatorId && activeNestedOperatorId === quotaTargetUserId) {
+            await loadNestedOperatorProfiles();
+        }
+    } catch (err) {
+        const msg = err.message || 'Error al actualizar el cupo';
+        if (errEl) {
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+        }
+        toast(msg, 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<i data-lucide="check"></i> Guardar Cupo`;
+            if (window.lucide) lucide.createIcons();
         }
     }
 }
@@ -3433,3 +3606,5 @@ window.loadProxiesPoolView = loadProxiesPoolView;
 window.handleBulkAddProxies = handleBulkAddProxies;
 window.handleDeleteProxy = handleDeleteProxy;
 window.handleRebalanceProxies = handleRebalanceProxies;
+window.openOperatorQuotaModal = openOperatorQuotaModal;
+window.handleSaveOperatorQuota = handleSaveOperatorQuota;
