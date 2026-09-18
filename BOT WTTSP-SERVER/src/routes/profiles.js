@@ -288,7 +288,24 @@ router.post('/:id/connect', async (req, res) => {
 // POST /profiles/:id/disconnect - Disconnect WhatsApp
 router.post('/:id/disconnect', async (req, res) => {
   const { id } = req.params;
+  const companyId = req.user.role === 'superadmin' ? null : req.user.companyId;
+
   try {
+    let checkQuery = 'SELECT id, name FROM profiles WHERE id = $1';
+    const checkValues = [id];
+    if (companyId) {
+      checkQuery += ` AND company_id = $${checkValues.length + 1}`;
+      checkValues.push(companyId);
+    }
+    if (req.user.role === 'user') {
+      checkQuery += ` AND assigned_user_id = $${checkValues.length + 1}`;
+      checkValues.push(req.user.id);
+    }
+    const checkResult = await db.query(checkQuery, checkValues);
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Perfil no encontrado o no autorizado' });
+    }
+
     await baileysManager.disconnectSession(id);
     await botEngine.stopBot(id);
     res.json({ success: true, message: 'WhatsApp desconectado' });
@@ -300,7 +317,24 @@ router.post('/:id/disconnect', async (req, res) => {
 // POST /profiles/:id/unlink - Unlink WhatsApp and delete session
 router.post('/:id/unlink', async (req, res) => {
   const { id } = req.params;
+  const companyId = req.user.role === 'superadmin' ? null : req.user.companyId;
+
   try {
+    let checkQuery = 'SELECT id, name FROM profiles WHERE id = $1';
+    const checkValues = [id];
+    if (companyId) {
+      checkQuery += ` AND company_id = $${checkValues.length + 1}`;
+      checkValues.push(companyId);
+    }
+    if (req.user.role === 'user') {
+      checkQuery += ` AND assigned_user_id = $${checkValues.length + 1}`;
+      checkValues.push(req.user.id);
+    }
+    const checkResult = await db.query(checkQuery, checkValues);
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Perfil no encontrado o no autorizado' });
+    }
+
     await botEngine.stopBot(id);
     await baileysManager.unlinkSession(id);
     res.json({ success: true, message: 'Cuenta desvinculada exitosamente' });
@@ -313,8 +347,24 @@ router.post('/:id/unlink', async (req, res) => {
 router.post('/:id/toggle-bot', async (req, res) => {
   const { id } = req.params;
   const { action } = req.body; // 'start' or 'stop'
+  const companyId = req.user.role === 'superadmin' ? null : req.user.companyId;
 
   try {
+    let checkQuery = 'SELECT id, name FROM profiles WHERE id = $1';
+    const checkValues = [id];
+    if (companyId) {
+      checkQuery += ` AND company_id = $${checkValues.length + 1}`;
+      checkValues.push(companyId);
+    }
+    if (req.user.role === 'user') {
+      checkQuery += ` AND assigned_user_id = $${checkValues.length + 1}`;
+      checkValues.push(req.user.id);
+    }
+    const checkResult = await db.query(checkQuery, checkValues);
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Perfil no encontrado o no autorizado' });
+    }
+
     if (action === 'start') {
       const liveSession = baileysManager.getSession(id);
       if (liveSession.status !== 'connected') {
@@ -337,28 +387,29 @@ router.delete('/:id', async (req, res) => {
   const companyId = req.user.role === 'superadmin' ? null : req.user.companyId;
 
   try {
-    // Stop bot & unlink session first
-    await botEngine.stopBot(id);
-    await baileysManager.unlinkSession(id);
-
-    let query = 'DELETE FROM profiles WHERE id = $1';
-    const values = [id];
+    let checkQuery = 'SELECT id, name FROM profiles WHERE id = $1';
+    const checkValues = [id];
 
     if (companyId) {
-      query += ` AND company_id = $${values.length + 1}`;
-      values.push(companyId);
+      checkQuery += ` AND company_id = $${checkValues.length + 1}`;
+      checkValues.push(companyId);
     }
 
     if (req.user.role === 'user') {
-      query += ` AND assigned_user_id = $${values.length + 1}`;
-      values.push(req.user.id);
+      checkQuery += ` AND assigned_user_id = $${checkValues.length + 1}`;
+      checkValues.push(req.user.id);
     }
-    query += ' RETURNING id';
 
-    const result = await db.query(query, values);
-    if (result.rows.length === 0) {
+    const checkResult = await db.query(checkQuery, checkValues);
+    if (checkResult.rows.length === 0) {
       return res.status(404).json({ error: 'Profile not found or unauthorized' });
     }
+
+    // Stop bot & unlink session first (only after verifying authorization)
+    await botEngine.stopBot(id);
+    await baileysManager.unlinkSession(id);
+
+    await db.query('DELETE FROM profiles WHERE id = $1', [id]);
 
     // Auto-rebalance proxies across remaining accounts
     proxyPoolManager.rebalanceAllProfiles().catch(e => console.error('[Profile Rebalance Error]:', e.message));
