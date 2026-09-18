@@ -52,14 +52,11 @@ function renderOperatorBots(bots) {
         card.id = `bot-card-${bot.id}`;
 
         const isConnected = bot.live_status === 'connected' || bot.status === 'connected';
-        const isConnecting = bot.live_status === 'connecting' || bot.live_status === 'qr';
         const hasPhone = Boolean(bot.phone_number && bot.phone_number.trim() !== '');
 
         let badgeHtml = '';
         if (isConnected) {
             badgeHtml = `<span class="bot-badge bot-badge-connected" id="bot-badge-${bot.id}"><i data-lucide="check-circle-2" style="width:14px; height:14px;"></i> Conectado</span>`;
-        } else if (isConnecting) {
-            badgeHtml = `<span class="bot-badge bot-badge-connecting" id="bot-badge-${bot.id}"><i data-lucide="loader-2" class="spin" style="width:14px; height:14px;"></i> Conectando</span>`;
         } else {
             badgeHtml = `<span class="bot-badge bot-badge-disconnected" id="bot-badge-${bot.id}"><i data-lucide="x-circle" style="width:14px; height:14px;"></i> Desconectado</span>`;
         }
