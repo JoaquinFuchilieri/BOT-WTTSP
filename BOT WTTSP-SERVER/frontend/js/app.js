@@ -1196,33 +1196,6 @@ function openCreateUserModal(defaultRole = 'user') {
         }
     }
 
-    // WhatsApp limit configuration
-    const limitInput = document.getElementById('new-user-whatsapp-limit');
-    const limitHint = document.getElementById('user-whatsapp-limit-hint');
-    let companyMaxWA = 10;
-
-    if (currentUser && currentUser.role === 'superadmin') {
-        const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
-        if (comp) companyMaxWA = comp.whatsapp_limit || 10;
-    } else if (currentUser) {
-        companyMaxWA = currentUser.companyWhatsappLimit || 10;
-    }
-
-    const totalAllocatedWA = Array.isArray(companyUsers) 
-        ? companyUsers.reduce((sum, user) => sum + (parseInt(user.whatsapp_limit, 10) || 0), 0)
-        : 0;
-    const freeQuotaWA = Math.max(0, companyMaxWA - totalAllocatedWA);
-    const defaultOpLimit = Math.min(2, freeQuotaWA);
-
-    if (limitInput) {
-        limitInput.value = defaultOpLimit;
-        limitInput.max = freeQuotaWA;
-        limitInput.min = 0;
-    }
-    if (limitHint) {
-        limitHint.textContent = `(Cupos libres disponibles: ${freeQuotaWA} de ${companyMaxWA})`;
-    }
-
     const hint = document.getElementById('pass-hint');
     if (hint) hint.textContent = '(obligatorio)';
 
@@ -1251,7 +1224,7 @@ function openEditUserModal(userId, fallbackEmail, fallbackRole) {
     const currentRole = user ? user.role : (fallbackRole || 'user');
 
     const titleEl = document.getElementById('modal-user-title');
-    if (titleEl) titleEl.textContent = currentRole === 'admin' ? 'Editar Administrador' : 'Editar Operador';
+    if (titleEl) titleEl.textContent = currentRole === 'admin' ? 'Editar Credenciales (Administrador)' : 'Editar Credenciales (Operador)';
 
     const idInput = document.getElementById('edit-user-id');
     if (idInput) idInput.value = userId;
@@ -1272,35 +1245,6 @@ function openEditUserModal(userId, fallbackEmail, fallbackRole) {
         } else {
             roleGroup.style.display = 'block';
         }
-    }
-
-    // WhatsApp limit configuration for edit
-    const limitInput = document.getElementById('new-user-whatsapp-limit');
-    const limitHint = document.getElementById('user-whatsapp-limit-hint');
-
-    let companyMaxWA = 10;
-    if (currentUser && currentUser.role === 'superadmin') {
-        const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
-        if (comp) companyMaxWA = comp.whatsapp_limit || 10;
-    } else if (currentUser) {
-        companyMaxWA = currentUser.companyWhatsappLimit || 10;
-    }
-    if (user && user.company_whatsapp_limit) {
-        companyMaxWA = user.company_whatsapp_limit;
-    }
-
-    const assignedCount = user ? (parseInt(user.assigned_profiles, 10) || 0) : 0;
-    const userLimit = (user && user.whatsapp_limit !== null && user.whatsapp_limit !== undefined)
-        ? user.whatsapp_limit
-        : (user && user.company_max_profiles ? user.company_max_profiles : 2);
-
-    if (limitInput) {
-        limitInput.value = userLimit;
-        limitInput.max = companyMaxWA;
-        limitInput.min = assignedCount; // Cannot set lower than currently active accounts
-    }
-    if (limitHint) {
-        limitHint.textContent = `(Cupo máx empresa: ${companyMaxWA} | Cuentas actuales: ${assignedCount})`;
     }
 
     const hint = document.getElementById('pass-hint');
@@ -1328,7 +1272,6 @@ async function handleSaveUser() {
     const emailInput = document.getElementById('new-user-email');
     const passInput = document.getElementById('new-user-pass');
     const roleSelect = document.getElementById('new-user-role');
-    const limitInput = document.getElementById('new-user-whatsapp-limit');
     const errorEl = document.getElementById('modal-user-error');
     const saveBtn = document.getElementById('modal-user-save');
     const idInput = document.getElementById('edit-user-id');
@@ -1337,15 +1280,9 @@ async function handleSaveUser() {
     const password = passInput ? passInput.value : '';
     const role = roleSelect ? roleSelect.value : 'user';
     const targetUserId = editingUserId || (idInput ? idInput.value : null);
-    const rawLimit = limitInput ? limitInput.value.trim() : '';
-    const whatsappLimit = rawLimit !== '' ? parseInt(rawLimit, 10) : null;
 
     if (!email) return toast('Completá el correo electrónico', 'error');
     if (!targetUserId && !password) return toast('Ingresá una contraseña para el nuevo usuario', 'error');
-
-    if (whatsappLimit !== null && (isNaN(whatsappLimit) || whatsappLimit < 0)) {
-        return toast('El límite de cuentas de WhatsApp debe ser un número entero mayor o igual a 0', 'error');
-    }
 
     // Strict Email Regex Validation
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -1375,19 +1312,13 @@ async function handleSaveUser() {
             if (password && password.trim() !== '') {
                 body.password = password;
             }
-            if (whatsappLimit !== null) {
-                body.whatsapp_limit = whatsappLimit;
-            }
             await api(`/users/${targetUserId}`, {
                 method: 'PATCH',
                 body: JSON.stringify(body)
             });
-            toast('Usuario y límite actualizados exitosamente', 'success');
+            toast('Credenciales actualizadas exitosamente', 'success');
         } else {
             const body = { email, password, role };
-            if (whatsappLimit !== null) {
-                body.whatsapp_limit = whatsappLimit;
-            }
             if (currentUser && currentUser.role === 'superadmin') {
                 body.companyId = activeCompanyId;
             }
