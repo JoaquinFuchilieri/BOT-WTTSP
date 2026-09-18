@@ -31,6 +31,10 @@ function getClientIp(req) {
   );
 }
 
+function isLocalhost(ip) {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip === 'localhost';
+}
+
 /**
  * Middleware that checks if an IP or email is currently blocked due to repeated failed logins.
  */
@@ -45,8 +49,8 @@ function loginRateLimiter(req, res, next) {
   const ipRecord = attempts.get(ipKey);
   const emailRecord = emailKey ? attempts.get(emailKey) : null;
 
-  // Check if IP is blocked
-  if (ipRecord && ipRecord.blockedUntil && now < ipRecord.blockedUntil) {
+  // Check if IP is blocked (skip localhost)
+  if (!isLocalhost(ip) && ipRecord && ipRecord.blockedUntil && now < ipRecord.blockedUntil) {
     const remainingSec = Math.ceil((ipRecord.blockedUntil - now) / 1000);
     res.setHeader('Retry-After', remainingSec);
     return res.status(429).json({

@@ -10,7 +10,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <link rel="stylesheet" href="css/styles.css?v=20260909_live">
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="stylesheet" href="css/styles.css?v=20260917_v7">
 </head>
 <body>
 
@@ -65,10 +66,20 @@
                         <span class="nav-text">Anuncios Globales</span>
                     </a>
 
-                    <!-- Tenant-scoped items -->
+                    <!-- Operator Navigation (Visible only for Operators) -->
+                    <a class="nav-item hidden" id="nav-operator-bots" data-view="view-operator-bots">
+                        <span class="nav-icon"><i data-lucide="smartphone"></i></span>
+                        <span class="nav-text">Mis Cuentas de WhatsApp</span>
+                    </a>
+
+                    <!-- Tenant-scoped items (Admin & SuperAdmin) -->
                     <a class="nav-item active" id="nav-metrics" data-view="view-metrics">
                         <span class="nav-icon"><i data-lucide="bar-chart-3"></i></span>
                         <span class="nav-text">Métricas & Reportes</span>
+                    </a>
+                    <a class="nav-item" id="nav-distribution" data-view="view-distribution">
+                        <span class="nav-icon"><i data-lucide="send"></i></span>
+                        <span class="nav-text">Base de Datos de Números</span>
                     </a>
                     <a class="nav-item" id="nav-blacklist" data-view="view-blacklist">
                         <span class="nav-icon"><i data-lucide="shield-ban"></i></span>
@@ -89,17 +100,13 @@
                         </span>
                         <span class="nav-text">Anuncios</span>
                     </a>
-                    <a class="nav-item" id="nav-audit" data-view="view-audit">
+                    <a class="nav-item hidden" id="nav-audit" data-view="view-audit">
                         <span class="nav-icon"><i data-lucide="activity"></i></span>
                         <span class="nav-text">Auditoría</span>
                     </a>
                     <a class="nav-item" id="nav-reports" data-view="view-reports">
                         <span class="nav-icon"><i data-lucide="life-buoy"></i></span>
                         <span class="nav-text">Reportes de Soporte</span>
-                    </a>
-                    <a class="nav-item" id="nav-help" data-view="view-help">
-                        <span class="nav-icon"><i data-lucide="book-open"></i></span>
-                        <span class="nav-text">Ayuda & Manual</span>
                     </a>
                 </nav>
             </div>
@@ -155,9 +162,6 @@
                             </button>
                             <button id="btn-open-superadmin-tickets" class="btn-secondary" onclick="switchView('view-reports')" style="display: flex; align-items: center; gap: 6px;">
                                 <i data-lucide="life-buoy"></i> Reportes de Soporte Técnico
-                            </button>
-                            <button id="btn-open-superadmin-help" class="btn-secondary" onclick="switchView('view-help')" style="display: flex; align-items: center; gap: 6px;">
-                                <i data-lucide="book-open"></i> Manual de Ayuda
                             </button>
                             <button id="btn-open-create-company" class="btn-primary"><i data-lucide="plus"></i> Nueva Empresa</button>
                         </div>
@@ -600,89 +604,106 @@
                 </div>
             </section>
 
-            <!-- ================= VIEW 10: MANUAL DE AYUDA Y OPERACIÓN ================= -->
-            <section id="view-help" class="view-content hidden">
+            <!-- ================= VIEW: MIS CUENTAS DE WHATSAPP (OPERADOR) ================= -->
+            <section id="view-operator-bots" class="view-content hidden">
                 <div class="panel">
-                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                    <div class="panel-header">
                         <div>
-                            <h3 style="display: flex; align-items: center; gap: 10px;">
-                                <i data-lucide="book-open" style="color: var(--accent-pink);"></i>
-                                <span id="help-view-title-display">Manual Integral de Uso y Operación</span>
-                            </h3>
-                            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
-                                Guía oficial, instructivos paso a paso y mejores prácticas de seguridad anti-bloqueos.
-                            </p>
+                            <h3>Mis Cuentas de WhatsApp</h3>
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Vinculá tus números de WhatsApp escaneando el código QR, configurá tu mensaje y controlá tus envíos en tiempo real.</p>
                         </div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <!-- Search box -->
-                            <div class="search-box" style="margin: 0; min-width: 230px;">
-                                <i data-lucide="search"></i>
-                                <input type="text" id="help-search-input" placeholder="Buscar en el manual...">
-                            </div>
-                            <!-- SuperAdmin controls -->
-                            <button id="btn-edit-help" class="btn-primary hidden" style="display: flex; align-items: center; gap: 6px;">
-                                <i data-lucide="edit-3"></i> Editar Manual
-                            </button>
-                            <button id="btn-reset-help" class="btn-secondary hidden" style="display: flex; align-items: center; gap: 6px; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
-                                <i data-lucide="rotate-ccw"></i> Restaurar Fábrica
-                            </button>
+                        <div>
+                            <span id="operator-bots-count-badge" class="badge" style="background: rgba(224, 77, 128, 0.15); color: var(--accent-pink); font-size: 12px; padding: 6px 14px; border-radius: 20px;">0 Cuentas asignadas</span>
                         </div>
                     </div>
 
-                    <!-- READ MODE CONTAINER -->
-                    <div id="help-read-container">
-                        <!-- Quick Jump Bar -->
-                        <div id="help-quick-bar" class="help-quick-bar">
-                            <button type="button" class="help-nav-pill active" data-target="all">Todo el Manual</button>
-                            <button type="button" class="help-nav-pill" data-target="1-programa-de-escritorio">1. Programa Desktop</button>
-                            <button type="button" class="help-nav-pill" data-target="2-opciones-y-retardos">2. Retardos & Seguridad</button>
-                            <button type="button" class="help-nav-pill" data-target="3-panel-web">3. Panel Web (SaaS)</button>
-                            <button type="button" class="help-nav-pill" data-target="4-buenas-practicas">4. Consejos Anti-Ban</button>
-                        </div>
+                    <div id="operator-bots-grid" class="operator-grid">
+                        <!-- Rendered dynamically by JavaScript -->
+                    </div>
 
-                        <!-- Rendered Markdown Output -->
-                        <div id="help-content-display" class="manual-content-display">
-                            <div style="color: var(--text-secondary); padding: 25px; text-align: center;">Cargando manual...</div>
-                        </div>
+                    <div id="operator-no-bots" class="hidden" style="text-align: center; padding: 50px 20px;">
+                        <i data-lucide="alert-circle" style="width: 44px; height: 44px; color: var(--text-tertiary); margin-bottom: 12px;"></i>
+                        <h4 style="font-size: 16px; margin-bottom: 6px;">No tienes cuentas de WhatsApp asignadas</h4>
+                        <p style="font-size: 13px; color: var(--text-secondary); max-width: 400px; margin: 0 auto;">Pídele a tu Administrador de Empresa que te asigne tus cuentas de WhatsApp para comenzar a operar.</p>
+                    </div>
+                </div>
+            </section>
 
-                        <!-- Manual Meta Footer -->
-                        <div class="manual-meta-footer">
-                            <span>Documentación oficial de F-Dispatch</span>
-                            <span class="fuchi-watermark" style="padding: 0; font-size: 10px; display: inline-block;">powered by Fuchi</span>
-                            <span id="help-meta-updated">Última actualización: -</span>
+            <!-- ================= VIEW: BASE DE DATOS DE NÚMEROS (ADMIN) ================= -->
+            <section id="view-distribution" class="view-content hidden">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Base de Datos de Números & Reparto Inteligente</h3>
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Cargá una lista masiva de teléfonos para repartirlos de forma equitativa y balanceada entre todas las cuentas de WhatsApp de tu empresa.</p>
                         </div>
                     </div>
 
-                    <!-- EDIT MODE CONTAINER (SuperAdmin only) -->
-                    <div id="help-edit-container" class="hidden">
-                        <div class="help-edit-alert">
-                            <div>
-                                <strong style="color: var(--accent-pink); font-size: 14px; display: flex; align-items: center; gap: 6px;">
-                                    <i data-lucide="info"></i> Modo de Edición Activo (SuperAdmin)
-                                </strong>
-                                <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px;">
-                                    Modificá los títulos y contenidos. Los cambios se sincronizarán en tiempo real con todas las empresas y programas de escritorio. Soporta sintaxis Markdown (#, ##, **, -, etc.).
-                                </p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+                        <div>
+                            <div class="form-group">
+                                <label for="distribution-file-input">Subir archivo de contactos (.txt, .csv):</label>
+                                <div class="drag-drop-zone" id="distribution-drop-zone" onclick="document.getElementById('distribution-file-input').click()">
+                                    <i data-lucide="upload-cloud" style="width: 36px; height: 36px; color: var(--accent-pink); margin-bottom: 8px;"></i>
+                                    <p style="font-weight: 600; font-size: 14px;">Hacé clic o arrastrá un archivo aquí</p>
+                                    <p style="font-size: 12px; color: var(--text-secondary);">Formatos soportados: .txt o .csv con un número por línea</p>
+                                </div>
+                                <input type="file" id="distribution-file-input" accept=".txt,.csv" style="display: none;">
                             </div>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <button id="btn-cancel-help" class="btn-secondary" style="padding: 8px 16px;">Cancelar</button>
-                                <button id="btn-save-help" class="btn-primary" style="padding: 8px 18px; display: flex; align-items: center; gap: 6px;">
-                                    <i data-lucide="check"></i> Guardar Cambios
+
+                            <div class="form-group" style="margin-top: 16px;">
+                                <label for="distribution-text-input">O pegá los números directamente:</label>
+                                <textarea id="distribution-text-input" rows="8" placeholder="" style="width: 100%; font-family: monospace; font-size: 13px;"></textarea>
+                            </div>
+
+                            <button id="btn-preview-distribution" class="btn-primary" style="width: 100%; padding: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <i data-lucide="scan"></i> Analizar Números y Previsualizar Reparto
+                            </button>
+                        </div>
+
+                        <div>
+                            <div id="distribution-preview-placeholder" style="border: 1px dashed var(--border-hairline); border-radius: 14px; padding: 40px 20px; text-align: center; color: var(--text-secondary); height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <i data-lucide="pie-chart" style="width: 44px; height: 44px; color: var(--text-tertiary); margin-bottom: 12px;"></i>
+                                <h4>Previsualización de Reparto</h4>
+                                <p style="font-size: 12.5px; max-width: 300px; margin-top: 6px;">Cargá o pegá los números a la izquierda y presioná "Analizar" para ver cómo se distribuirán entre tus bots activos.</p>
+                            </div>
+
+                            <div id="distribution-preview-results" class="hidden">
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+                                    <div class="panel" style="padding: 12px; text-align: center; margin: 0;">
+                                        <div id="dist-stat-valid" style="font-size: 20px; font-weight: 700; color: #4ade80;">0</div>
+                                        <div style="font-size: 11px; color: var(--text-secondary);">Válidos</div>
+                                    </div>
+                                    <div class="panel" style="padding: 12px; text-align: center; margin: 0;">
+                                        <div id="dist-stat-blacklisted" style="font-size: 20px; font-weight: 700; color: #f87171;">0</div>
+                                        <div style="font-size: 11px; color: var(--text-secondary);">Excluidos (Blacklist)</div>
+                                    </div>
+                                    <div class="panel" style="padding: 12px; text-align: center; margin: 0;">
+                                        <div id="dist-stat-bots" style="font-size: 20px; font-weight: 700; color: var(--accent-pink);">0</div>
+                                        <div style="font-size: 11px; color: var(--text-secondary);">Bots Receptores</div>
+                                    </div>
+                                </div>
+
+                                <h4 style="font-size: 13.5px; margin-bottom: 8px;">Distribución equitativa por bot:</h4>
+                                <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-hairline); border-radius: 10px; margin-bottom: 16px;">
+                                    <table style="width: 100%; font-size: 12.5px;">
+                                        <thead>
+                                            <tr style="background: rgba(255,255,255,0.02);">
+                                                <th style="padding: 8px 12px; text-align: left;">Cuenta WhatsApp</th>
+                                                <th style="padding: 8px 12px; text-align: left;">Operador</th>
+                                                <th style="padding: 8px 12px; text-align: right;">Números Asignados</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="distribution-table-body">
+                                            <!-- Injected dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <button id="btn-execute-distribution" class="btn-primary" style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                    <i data-lucide="check-circle-2"></i> Confirmar y Cargar en Colas de los Bots
                                 </button>
                             </div>
-                        </div>
-
-                        <div class="form-group" style="margin-bottom: 18px;">
-                            <label for="help-edit-title" style="font-size: 13.5px; font-weight: 600; margin-bottom: 6px; display: block;">Título del Manual:</label>
-                            <input type="text" id="help-edit-title" class="form-control" style="width: 100%; font-size: 14.5px; font-weight: 600;">
-                        </div>
-
-                        <div class="form-group">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                <label for="help-edit-content" style="font-size: 13.5px; font-weight: 600; display: block;">Cuerpo del Manual (Formato Markdown):</label>
-                                <span style="font-size: 11.5px; color: var(--text-secondary);">Podés usar encabezados (#, ##), listas (-), negritas (**) y enlaces.</span>
-                            </div>
-                            <textarea id="help-edit-content" rows="26" class="form-control" style="width: 100%; font-family: 'Consolas', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; resize: vertical; box-sizing: border-box;"></textarea>
                         </div>
                     </div>
                 </div>
@@ -715,7 +736,11 @@
                 <input type="number" id="new-comp-limit" value="5" min="1">
             </div>
             <div class="form-group">
-                <label for="new-comp-max-profiles">Límite de Cuentas WhatsApp por Operador:</label>
+                <label for="new-comp-whatsapp-limit">Límite Total de Cuentas WhatsApp Contratadas:</label>
+                <input type="number" id="new-comp-whatsapp-limit" value="10" min="1">
+            </div>
+            <div class="form-group">
+                <label for="new-comp-max-profiles">Límite de Cuentas WhatsApp por Operador (Referencia):</label>
                 <input type="number" id="new-comp-max-profiles" value="3" min="1">
             </div>
             <p id="modal-comp-error" class="hidden" style="color: var(--accent-red); font-size: 13px; margin-bottom: 10px;"></p>
@@ -737,7 +762,11 @@
                 <input type="number" id="limits-user-limit" min="1">
             </div>
             <div class="form-group">
-                <label for="limits-max-profiles">Cantidad máxima de cuentas de WhatsApp por Operador:</label>
+                <label for="limits-whatsapp-limit">Cantidad Total de Cuentas WhatsApp Contratadas:</label>
+                <input type="number" id="limits-whatsapp-limit" min="1">
+            </div>
+            <div class="form-group">
+                <label for="limits-max-profiles">Límite de cuentas de WhatsApp por Operador (Referencia):</label>
                 <input type="number" id="limits-max-profiles" min="1">
             </div>
             <div class="flex gap-10" style="justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-hairline);">
@@ -746,6 +775,39 @@
                     <button id="modal-limits-cancel" class="btn-secondary">Cancelar</button>
                     <button id="modal-limits-save" class="btn-primary">Guardar Límites</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Escaneo de Código QR en Vivo (Baileys Web) -->
+    <div id="modal-qr" class="modal hidden">
+        <div class="modal-card" style="max-width: 440px; text-align: center;">
+            <h3 style="margin-bottom: 6px;">Vincular WhatsApp</h3>
+            <p id="qr-modal-profile-name" style="font-size: 13.5px; color: var(--accent-pink); font-weight: 600; margin-bottom: 12px;"></p>
+            
+            <div id="qr-modal-instructions" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-hairline); border-radius: 12px; padding: 14px; text-align: left; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px;">
+                <ol style="padding-left: 18px; line-height: 1.6;">
+                    <li>Abre <strong>WhatsApp</strong> en tu teléfono móvil.</li>
+                    <li>Toca <strong>Menú (⋮)</strong> o <strong>Configuración (⚙️)</strong>.</li>
+                    <li>Selecciona <strong>Dispositivos vinculados</strong>.</li>
+                    <li>Toca en <strong>Vincular un dispositivo</strong> y apunta tu cámara al código:</li>
+                </ol>
+            </div>
+
+            <div id="qr-modal-container" style="min-height: 270px; display: flex; align-items: center; justify-content: center;">
+                <div id="qr-modal-loader">
+                    <i data-lucide="loader-2" class="spin" style="width: 36px; height: 36px; color: var(--accent-pink); margin-bottom: 8px;"></i>
+                    <p style="font-size: 12.5px; color: var(--text-secondary);">Generando código QR seguro...</p>
+                </div>
+                <div id="qr-modal-img-wrapper" class="hidden qr-display-card">
+                    <img id="qr-modal-img" class="qr-code-img" alt="WhatsApp QR">
+                </div>
+            </div>
+
+            <p id="qr-modal-status" style="font-size: 12.5px; color: var(--accent-orange); margin-top: 10px; font-weight: 500;">Esperando escaneo...</p>
+
+            <div style="margin-top: 20px; display: flex; justify-content: center;">
+                <button id="modal-qr-close" class="btn-secondary" style="padding: 8px 24px;">Cerrar</button>
             </div>
         </div>
     </div>
@@ -794,6 +856,32 @@
             <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
                 <button id="modal-nested-profile-cancel" class="btn-secondary">Cancelar</button>
                 <button id="modal-nested-profile-save" class="btn-primary">Crear Cuenta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Configurar Mensaje Automático (Operador) -->
+    <div id="modal-bot-message" class="modal hidden">
+        <div class="modal-card" style="max-width: 580px;">
+            <h3 id="modal-bot-message-title" style="margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="message-square" style="color: var(--accent-pink);"></i> Mensaje Automático
+            </h3>
+            <p id="modal-bot-message-subtitle" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 18px;">
+                Escribe o pega el texto que este WhatsApp enviará automáticamente a cada contacto asignado.
+            </p>
+            <input type="hidden" id="modal-bot-message-profile-id">
+            <div class="form-group" style="margin-bottom: 10px;">
+                <textarea id="modal-bot-message-textarea" rows="9" style="width: 100%; font-size: 14px; line-height: 1.6; padding: 14px; resize: vertical; box-sizing: border-box;" placeholder="Escribe aquí el mensaje que enviará este WhatsApp..."></textarea>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <span id="modal-bot-message-char-count" style="font-size: 12px; color: var(--text-tertiary);">0 caracteres</span>
+                    <span style="font-size: 11.5px; color: var(--text-tertiary);">Soporta saltos de línea y emojis</span>
+                </div>
+            </div>
+            <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border-hairline);">
+                <button id="modal-bot-message-cancel" class="btn-secondary">Cancelar</button>
+                <button id="modal-bot-message-save" class="btn-primary" style="display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="save" style="width: 14px; height: 14px;"></i> Guardar Mensaje
+                </button>
             </div>
         </div>
     </div>
@@ -1018,6 +1106,21 @@
                 </div>
             </div>
 
+            <!-- Módulo 2.3: Proxy Dedicado (IP Independiente) -->
+            <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-hairline);">
+                <h4 style="font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="network" style="width: 16px; height: 16px; color: var(--accent-pink);"></i> Proxy Dedicado (IP Independiente)
+                </h4>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 10px 0;">
+                    Asigná un proxy residencial o móvil 4G/5G para que este bot se conecte a WhatsApp con su propia dirección IP.
+                </p>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="cfg-proxy-url" style="font-size: 11.5px;">URL del Proxy (HTTP/HTTPS o SOCKS5):</label>
+                    <input type="text" id="cfg-proxy-url" placeholder="http://usuario:contraseña@ip_o_host:puerto">
+                    <small style="color: var(--text-tertiary); font-size: 11px; display: block; margin-top: 4px;">Dejar vacío para usar la conexión IP directa del servidor.</small>
+                </div>
+            </div>
+
             <div class="flex gap-10" style="justify-content: flex-end; margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border-hairline);">
                 <button id="modal-profile-config-cancel" class="btn-secondary">Cancelar</button>
                 <button id="modal-profile-config-save" class="btn-primary">Guardar Configuración</button>
@@ -1028,9 +1131,11 @@
     <!-- Toast Notifications -->
     <div id="toast-container" style="position: fixed; bottom: 24px; right: 24px; z-index: 99999; display: flex; flex-direction: column; gap: 8px;"></div>
 
-    <script src="js/lucide.min.js?v=20260909_live"></script>
-    <script src="js/icons-helper.js?v=20260909_live"></script>
-    <script src="js/dialog.js?v=20260909_live"></script>
-    <script src="js/app.js?v=20260909_live"></script>
+    <script src="js/lucide.min.js?v=20260917_v7"></script>
+    <script src="js/icons-helper.js?v=20260917_v7"></script>
+    <script src="js/dialog.js?v=20260917_v7"></script>
+    <script src="js/app.js?v=20260917_v7"></script>
+    <script src="js/operator-view.js?v=20260917_v7"></script>
+    <script src="js/distribution-view.js?v=20260917_v7"></script>
 </body>
 </html>

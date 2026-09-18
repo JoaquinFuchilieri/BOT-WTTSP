@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS companies (
     name VARCHAR(100) NOT NULL,
     plan_id UUID REFERENCES plans(id),
     user_limit INTEGER DEFAULT 5,
+    whatsapp_limit INTEGER DEFAULT 10,
     max_profiles_per_operator INTEGER DEFAULT 3,
     status VARCHAR(20) DEFAULT 'active', -- active, suspended
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -30,7 +31,9 @@ CREATE TABLE IF NOT EXISTS profiles (
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     assigned_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
+    phone_number VARCHAR(30) DEFAULT '',
     status VARCHAR(20) DEFAULT 'disconnected',
+    is_active_bot BOOLEAN DEFAULT FALSE,
     message TEXT DEFAULT '',
     delay_min INTEGER DEFAULT 115,
     delay_max INTEGER DEFAULT 145,
@@ -50,6 +53,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     warmup_max_limit INTEGER DEFAULT 200,
     is_paused_early_warning BOOLEAN DEFAULT FALSE,
     early_warning_reason TEXT DEFAULT '',
+    proxy_url VARCHAR(500) DEFAULT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

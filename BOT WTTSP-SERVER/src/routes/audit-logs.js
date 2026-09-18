@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/authenticate');
 
-router.use(authenticateToken, requireRole('superadmin', 'admin'));
+router.use(authenticateToken, requireRole('superadmin'));
 
 // GET /audit-logs - List audit events
 router.get('/', async (req, res) => {

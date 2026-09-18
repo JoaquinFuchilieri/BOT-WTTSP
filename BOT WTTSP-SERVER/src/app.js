@@ -29,6 +29,17 @@ app.use((req, res, next) => {
   next();
 });
 
+const http = require('http');
+const server = http.createServer(app);
+
+// WebSocket server setup
+const { initWebSocketServer } = require('./websocket/socket-handler');
+initWebSocketServer(server);
+
+// Services for auto-restore
+const baileysManager = require('./services/baileys-manager');
+const botEngine = require('./services/server-bot-engine');
+
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
@@ -37,6 +48,7 @@ const companyRoutes = require('./routes/companies');
 const userRoutes = require('./routes/users');
 const profileRoutes = require('./routes/profiles');
 const queueRoutes = require('./routes/queue');
+const distributionRoutes = require('./routes/distribution');
 const statsRoutes = require('./routes/stats');
 const blacklistRoutes = require('./routes/blacklist');
 const announcementRoutes = require('./routes/announcements');
@@ -48,6 +60,7 @@ app.use('/companies', companyRoutes);
 app.use('/users', userRoutes);
 app.use('/profiles', profileRoutes);
 app.use('/profiles/:id/queue', queueRoutes);
+app.use('/distribution', distributionRoutes);
 app.use('/stats', statsRoutes);
 app.use('/blacklist', blacklistRoutes);
 app.use('/announcements', announcementRoutes);
@@ -66,6 +79,20 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, async () => {
+  console.log(`[F-Dispatch Server] Running on port ${PORT} with WebSockets enabled`);
+
+  // Auto-restore active WhatsApp sessions from disk
+  try {
+    await baileysManager.autoRestoreSessions();
+  } catch (err) {
+    console.error('[Baileys] Error auto-restoring sessions on startup:', err);
+  }
+
+  // Auto-start active bots
+  try {
+    await botEngine.autoStartBots();
+  } catch (err) {
+    console.error('[BotEngine] Error auto-starting bots on startup:', err);
+  }
 });

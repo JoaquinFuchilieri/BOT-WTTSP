@@ -42,7 +42,7 @@ router.use(authenticateToken);
 router.get('/', requireRole('superadmin'), async (req, res) => {
   try {
     const result = await db.query(`
-      SELECT c.id, c.name, c.status, c.user_limit, c.max_profiles_per_operator, c.created_at,
+      SELECT c.id, c.name, c.status, c.user_limit, c.whatsapp_limit, c.max_profiles_per_operator, c.created_at,
              p.name as plan_name,
              (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.role = 'user') as user_count,
              (SELECT COUNT(*) FROM profiles pr WHERE pr.company_id = c.id) as profile_count,
@@ -102,7 +102,7 @@ router.get('/:id/details', requireRole('superadmin'), async (req, res) => {
 
 // POST /companies - Create company + initial admin user
 router.post('/', requireRole('superadmin'), async (req, res) => {
-  const { name, adminEmail, adminPassword, planId, userLimit, maxProfilesPerOperator } = req.body;
+  const { name, adminEmail, adminPassword, planId, userLimit, whatsappLimit, maxProfilesPerOperator } = req.body;
 
   if (!name || !adminEmail || !adminPassword) {
     return res.status(400).json({ error: 'name, adminEmail, and adminPassword are required' });
@@ -121,8 +121,8 @@ router.post('/', requireRole('superadmin'), async (req, res) => {
 
     // Insert company
     const companyRes = await client.query(
-      'INSERT INTO companies (name, plan_id, user_limit, max_profiles_per_operator, status) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [name.trim(), planId || null, userLimit || 5, maxProfilesPerOperator || 3, 'active']
+      'INSERT INTO companies (name, plan_id, user_limit, whatsapp_limit, max_profiles_per_operator, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [name.trim(), planId || null, userLimit || 5, whatsappLimit || 10, maxProfilesPerOperator || 3, 'active']
     );
     const company = companyRes.rows[0];
 
@@ -147,10 +147,10 @@ router.post('/', requireRole('superadmin'), async (req, res) => {
   }
 });
 
-// PATCH /companies/:id - Update company status, user_limit, max_profiles_per_operator, plan
+// PATCH /companies/:id - Update company status, user_limit, whatsapp_limit, max_profiles_per_operator, plan
 router.patch('/:id', requireRole('superadmin'), async (req, res) => {
   const { id } = req.params;
-  const { name, status, userLimit, maxProfilesPerOperator, planId } = req.body;
+  const { name, status, userLimit, whatsappLimit, maxProfilesPerOperator, planId } = req.body;
 
   try {
     const fields = [];
@@ -171,6 +171,10 @@ router.patch('/:id', requireRole('superadmin'), async (req, res) => {
     if (userLimit !== undefined) {
       fields.push(`user_limit = $${idx++}`);
       values.push(parseInt(userLimit, 10));
+    }
+    if (whatsappLimit !== undefined) {
+      fields.push(`whatsapp_limit = $${idx++}`);
+      values.push(parseInt(whatsappLimit, 10));
     }
     if (maxProfilesPerOperator !== undefined) {
       fields.push(`max_profiles_per_operator = $${idx++}`);

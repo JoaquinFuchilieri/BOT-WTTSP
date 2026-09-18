@@ -271,8 +271,8 @@ function showAppShell() {
         document.getElementById('nav-admins').classList.remove('hidden');
         document.getElementById('nav-blacklist').classList.remove('hidden');
         document.getElementById('nav-audit').classList.remove('hidden');
-        document.getElementById('nav-reports').classList.add('hidden'); // SuperAdmin accesses reports globally from Companies view
-        if (document.getElementById('nav-help')) document.getElementById('nav-help').classList.remove('hidden');
+        document.getElementById('nav-reports').classList.add('hidden');
+        if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.add('hidden');
         if (document.getElementById('nav-admin-announcements')) document.getElementById('nav-admin-announcements').classList.add('hidden');
         if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.add('hidden');
 
@@ -280,7 +280,7 @@ function showAppShell() {
         const savedCompName = localStorage.getItem('saas_active_company_name');
         const savedCompStatus = localStorage.getItem('saas_active_company_status');
 
-        if (savedCompId && savedView && savedView !== 'view-companies' && savedView !== 'view-announcements' && savedView !== 'view-help') {
+        if (savedCompId && savedView && savedView !== 'view-companies' && savedView !== 'view-announcements') {
             activeCompanyId = savedCompId;
             activeCompanyName = savedCompName || 'Empresa';
             activeCompanyStatus = savedCompStatus || 'active';
@@ -288,20 +288,47 @@ function showAppShell() {
             switchView(savedView);
         } else if (savedView === 'view-announcements') {
             switchView('view-announcements');
-        } else if (savedView === 'view-help') {
-            switchView('view-help');
         } else {
             switchView('view-companies');
         }
-    } else {
-        // Company Admin: Lock to own company
+    } else if (currentUser.role === 'user') {
+        // OPERATOR VIEW
         document.getElementById('nav-companies').classList.add('hidden');
         document.getElementById('nav-announcements').classList.add('hidden');
         document.getElementById('nav-admins').classList.add('hidden');
+        document.getElementById('nav-operators').classList.add('hidden');
+        document.getElementById('nav-blacklist').classList.add('hidden');
+        document.getElementById('nav-audit').classList.add('hidden');
+        document.getElementById('nav-reports').classList.add('hidden');
+        document.getElementById('nav-metrics').classList.add('hidden');
+        if (document.getElementById('nav-admin-announcements')) document.getElementById('nav-admin-announcements').classList.add('hidden');
+        if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.add('hidden');
+
+        if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.remove('hidden');
+        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.remove('hidden');
+
+        activeCompanyId = currentUser.companyId;
+        activeCompanyName = currentUser.companyName || 'Mi Empresa';
+        updateBreadcrumb();
+
+        const validViews = ['view-operator-bots', 'view-distribution'];
+        if (savedView && validViews.includes(savedView)) {
+            switchView(savedView);
+        } else {
+            switchView('view-operator-bots');
+        }
+    } else {
+        // COMPANY ADMIN
+        document.getElementById('nav-companies').classList.add('hidden');
+        document.getElementById('nav-announcements').classList.add('hidden');
+        document.getElementById('nav-admins').classList.add('hidden');
+        if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.add('hidden');
         document.getElementById('nav-blacklist').classList.remove('hidden');
-        document.getElementById('nav-audit').classList.remove('hidden');
+        document.getElementById('nav-audit').classList.add('hidden'); // Exclusivo SuperAdmin
         document.getElementById('nav-reports').classList.remove('hidden');
-        if (document.getElementById('nav-help')) document.getElementById('nav-help').classList.remove('hidden');
+        document.getElementById('nav-metrics').classList.remove('hidden');
+        document.getElementById('nav-operators').classList.remove('hidden');
+        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.remove('hidden');
         if (document.getElementById('nav-admin-announcements')) document.getElementById('nav-admin-announcements').classList.remove('hidden');
         if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.remove('hidden');
 
@@ -310,7 +337,7 @@ function showAppShell() {
         updateBreadcrumb();
         loadAdminAnnouncementsInbox();
 
-        const validViews = ['view-metrics', 'view-blacklist', 'view-operators', 'view-audit', 'view-reports', 'view-admin-announcements', 'view-help'];
+        const validViews = ['view-metrics', 'view-blacklist', 'view-operators', 'view-reports', 'view-admin-announcements', 'view-distribution'];
         if (savedView && validViews.includes(savedView)) {
             switchView(savedView);
         } else {
@@ -325,14 +352,16 @@ function showAppShell() {
         try {
             if (activeView === 'view-companies' && currentUser && currentUser.role === 'superadmin') {
                 await loadCompaniesDirectory();
-            } else if (activeView === 'view-metrics' && activeCompanyId) {
+            } else if (activeView === 'view-metrics' && activeCompanyId && currentUser && currentUser.role !== 'user') {
                 await loadCompanyMetrics();
-            } else if (activeView === 'view-reports') {
-                if (currentUser && currentUser.role === 'superadmin') {
+            } else if (activeView === 'view-reports' && currentUser && currentUser.role !== 'user') {
+                if (currentUser.role === 'superadmin') {
                     await loadSuperAdminTicketsLog();
                 }
+            } else if (activeView === 'view-operator-bots' && currentUser && currentUser.role === 'user') {
+                if (typeof loadOperatorBots === 'function') await loadOperatorBots();
             }
-            if (currentUser && currentUser.role !== 'superadmin') {
+            if (currentUser && currentUser.role === 'admin') {
                 await loadAdminAnnouncementsInbox();
             }
         } catch (e) {
@@ -347,6 +376,8 @@ function updateBreadcrumb(currentViewId) {
     const switchBtn = document.getElementById('btn-switch-company');
     const vId = currentViewId || localStorage.getItem('saas_active_view');
 
+    if (!currentUser) return;
+
     if (currentUser.role === 'superadmin') {
         if (vId === 'view-reports') {
             rootEl.textContent = 'Soporte:';
@@ -355,10 +386,6 @@ function updateBreadcrumb(currentViewId) {
         } else if (vId === 'view-announcements') {
             rootEl.textContent = 'SuperAdmin:';
             compEl.textContent = 'Anuncios Globales del Sistema';
-            switchBtn.classList.remove('hidden');
-        } else if (vId === 'view-help') {
-            rootEl.textContent = 'SuperAdmin:';
-            compEl.textContent = 'Manual de Ayuda & Operación';
             switchBtn.classList.remove('hidden');
         } else if (!activeCompanyId) {
             rootEl.textContent = 'Directorio:';
@@ -369,13 +396,14 @@ function updateBreadcrumb(currentViewId) {
             compEl.textContent = activeCompanyName;
             switchBtn.classList.remove('hidden');
         }
+    } else if (currentUser.role === 'user') {
+        rootEl.textContent = 'Operador:';
+        compEl.textContent = currentUser.email;
+        switchBtn.classList.add('hidden');
     } else {
         if (vId === 'view-admin-announcements') {
             rootEl.textContent = 'Empresa:';
             compEl.textContent = 'Anuncios del Sistema';
-        } else if (vId === 'view-help') {
-            rootEl.textContent = 'Empresa:';
-            compEl.textContent = 'Manual de Uso & Operación';
         } else {
             rootEl.textContent = 'Empresa:';
             compEl.textContent = activeCompanyName;
@@ -387,9 +415,15 @@ function updateBreadcrumb(currentViewId) {
 function switchView(viewId) {
     const sidebar = document.getElementById('sidebar');
 
+    // If non-superadmin tries to open audit, restrict and redirect
+    if (viewId === 'view-audit' && currentUser && currentUser.role !== 'superadmin') {
+        toast('Acceso restringido: Auditoría es exclusivo para SuperAdmin', 'error');
+        viewId = currentUser.role === 'admin' ? 'view-metrics' : 'view-operator-bots';
+    }
+
     // If SuperAdmin tries to open an in-company view without an active company, redirect to company directory
-    const globalSuperadminViews = ['view-companies', 'view-reports', 'view-announcements', 'view-help'];
-    if (currentUser.role === 'superadmin' && !activeCompanyId && !globalSuperadminViews.includes(viewId)) {
+    const globalSuperadminViews = ['view-companies', 'view-reports', 'view-announcements'];
+    if (currentUser && currentUser.role === 'superadmin' && !activeCompanyId && !globalSuperadminViews.includes(viewId)) {
         toast('Seleccioná una empresa del directorio primero', 'error');
         viewId = 'view-companies';
     }
@@ -407,9 +441,7 @@ function switchView(viewId) {
     }
 
     // CONDITIONAL SIDEBAR:
-    // If SuperAdmin at directory or at global reports without active company: hide sidebar completely
-    // When inside a company or viewing announcements/help: show sidebar
-    if (currentUser.role === 'superadmin') {
+    if (currentUser && currentUser.role === 'superadmin') {
         if (viewId === 'view-companies' || (viewId === 'view-reports' && !activeCompanyId)) {
             sidebar.classList.add('hidden');
             document.querySelector('.content-wrapper').style.marginLeft = '0';
@@ -440,9 +472,12 @@ function switchView(viewId) {
     } else if (viewId === 'view-admin-announcements') {
         updateBreadcrumb();
         loadAdminAnnouncementsView();
-    } else if (viewId === 'view-help') {
+    } else if (viewId === 'view-operator-bots') {
         updateBreadcrumb();
-        loadHelpManual();
+        if (typeof loadOperatorBots === 'function') loadOperatorBots();
+    } else if (viewId === 'view-distribution') {
+        updateBreadcrumb();
+        if (typeof initDistributionView === 'function') initDistributionView();
     } else {
         updateBreadcrumb();
         if (viewId === 'view-metrics') {
@@ -451,7 +486,7 @@ function switchView(viewId) {
             loadExecutiveReport();
         }
         if (viewId === 'view-blacklist') loadBlacklist();
-        if (viewId === 'view-audit') loadAuditLogs();
+        if (viewId === 'view-audit' && currentUser && currentUser.role === 'superadmin') loadAuditLogs();
         if (viewId === 'view-admins') loadUsersSection('admin');
         if (viewId === 'view-operators') loadUsersSection('user');
         if (viewId === 'view-reports') loadReportsSection();
@@ -943,9 +978,10 @@ async function loadNestedOperatorProfiles() {
                 <td>${p.sent_today || 0}</td>
                 <td>${p.daily_limit || 200}</td>
                 <td>
+                    ${currentUser && currentUser.role === 'superadmin' ? `
                     <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" onclick="openProfileConfigModal('${p.id}')">
                         ${getLucideSvg('sliders', 12)} Ajustes
-                    </button>
+                    </button>` : ''}
                     <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteProfile('${p.id}')">Eliminar Cuenta</button>
                 </td>
             `;
@@ -2543,6 +2579,9 @@ function exportReportPDF() {
 
 // ================= PROFILE CONFIG MODAL =================
 async function openProfileConfigModal(profileId) {
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        return toast('Acceso restringido: Solo el SuperAdmin puede configurar parámetros y límites de la cuenta', 'error');
+    }
     try {
         const p = await api(`/profiles/${profileId}`);
         if (!p) return toast('No se encontró el perfil', 'error');
@@ -2578,6 +2617,12 @@ async function openProfileConfigModal(profileId) {
         document.getElementById('cfg-warmup-increment').value = p.warmup_daily_increment || 15;
         document.getElementById('cfg-warmup-max').value = p.warmup_max_limit || 200;
 
+        // Dedicated Proxy
+        const proxyInput = document.getElementById('cfg-proxy-url');
+        if (proxyInput) {
+            proxyInput.value = p.proxy_url || '';
+        }
+
         showModal('modal-profile-config');
     } catch (err) {
         toast(err.message, 'error');
@@ -2585,6 +2630,9 @@ async function openProfileConfigModal(profileId) {
 }
 
 async function handleSaveProfileConfig() {
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        return toast('Acceso restringido: Solo el SuperAdmin puede modificar parámetros y límites de la cuenta', 'error');
+    }
     const profileId = document.getElementById('profile-config-id').value;
     if (!profileId) return;
 
@@ -2597,6 +2645,8 @@ async function handleSaveProfileConfig() {
     const warmup_day = parseInt(document.getElementById('cfg-warmup-day').value, 10) || 1;
     const warmup_daily_increment = parseInt(document.getElementById('cfg-warmup-increment').value, 10) || 15;
     const warmup_max_limit = parseInt(document.getElementById('cfg-warmup-max').value, 10) || 200;
+    const proxyInput = document.getElementById('cfg-proxy-url');
+    const proxy_url = proxyInput ? (proxyInput.value.trim() || null) : null;
 
     try {
         await api(`/profiles/${profileId}/config`, {
@@ -2610,7 +2660,8 @@ async function handleSaveProfileConfig() {
                 warmup_enabled,
                 warmup_day,
                 warmup_daily_increment,
-                warmup_max_limit
+                warmup_max_limit,
+                proxy_url
             })
         });
         toast('Configuración guardada exitosamente');
