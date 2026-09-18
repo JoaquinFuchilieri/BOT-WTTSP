@@ -3,25 +3,39 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/authenticate');
 const proxyPoolManager = require('../services/proxy-pool-manager');
 
-// Middleware: Strictly enforce SuperAdmin access
-function requireSuperAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'superadmin') {
+// Middleware: Strictly enforce Admin or SuperAdmin access
+function requireAdminOrSuperAdmin(req, res, next) {
+  if (!req.user || !['superadmin', 'admin'].includes(req.user.role)) {
     return res.status(403).json({
-      error: 'Acceso Denegado: La administración del Pool de Proxies es exclusiva para el SuperAdmin'
+      error: 'Acceso Denegado: La administración de proxies es exclusiva para Administradores y SuperAdmin'
     });
   }
   next();
 }
 
-router.use(authenticateToken);
-router.use(requireSuperAdmin);
+function resolveCompanyId(req) {
+  if (req.user.role === 'superadmin') {
+    return req.query.companyId || req.body.companyId || null;
+  }
+  return req.user.companyId;
+}
 
-// GET /admin/proxies - Retrieve pool summary, proxies list, and WhatsApp assignment status
+router.use(authenticateToken);
+router.use(requireAdminOrSuperAdmin);
+
+// GET /admin/proxies - Retrieve pool summary, proxies list, and WhatsApp assignment status for a company
 router.get('/', async (req, res) => {
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: 'Debe especificar el ID de la empresa (companyId)' });
+  }
+
   try {
-    const pool = await proxyPoolManager.getPoolSummary();
-    const assignments = await proxyPoolManager.getProfilesAssignmentList();
+    const pool = await proxyPoolManager.getPoolSummary(companyId);
+    const assignments = await proxyPoolManager.getProfilesAssignmentList(companyId);
     res.json({
+      companyId: pool.companyId,
+      companyName: pool.companyName,
       stats: pool.stats,
       proxies: pool.proxies,
       assignments
@@ -32,8 +46,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /admin/proxies/bulk - Bulk add proxies from text and auto-assign in groups of 20
+// POST /admin/proxies/bulk - Bulk add proxies from text and auto-assign in groups of 20 for this company
 router.post('/bulk', async (req, res) => {
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: 'Debe especificar el ID de la empresa (companyId)' });
+  }
+
   const { text, maxCapacity } = req.body;
   if (!text || typeof text !== 'string' || !text.trim()) {
     return res.status(400).json({ error: 'Debe ingresar al menos una URL o línea de proxy' });
@@ -42,14 +61,16 @@ router.post('/bulk', async (req, res) => {
   const capacity = parseInt(maxCapacity, 10) || 20;
 
   try {
-    const result = await proxyPoolManager.addProxiesBulk(text, capacity);
-    const pool = await proxyPoolManager.getPoolSummary();
-    const assignments = await proxyPoolManager.getProfilesAssignmentList();
+    const result = await proxyPoolManager.addProxiesBulk(companyId, text, capacity);
+    const pool = await proxyPoolManager.getPoolSummary(companyId);
+    const assignments = await proxyPoolManager.getProfilesAssignmentList(companyId);
 
     res.json({
       success: true,
-      message: `Se cargaron ${result.added} proxy(s) correctamente y se rebalancearon las cuentas.`,
+      message: `Se cargaron ${result.added} proxy(s) correctamente y se asignaron a las cuentas de ${pool.companyName}.`,
       result,
+      companyId: pool.companyId,
+      companyName: pool.companyName,
       stats: pool.stats,
       proxies: pool.proxies,
       assignments
@@ -60,17 +81,24 @@ router.post('/bulk', async (req, res) => {
   }
 });
 
-// DELETE /admin/proxies/:id - Delete proxy and rebalance remaining profiles
+// DELETE /admin/proxies/:id - Delete proxy and rebalance remaining profiles of this company
 router.delete('/:id', async (req, res) => {
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: 'Debe especificar el ID de la empresa (companyId)' });
+  }
+
   const { id } = req.params;
   try {
-    await proxyPoolManager.removeProxy(id);
-    const pool = await proxyPoolManager.getPoolSummary();
-    const assignments = await proxyPoolManager.getProfilesAssignmentList();
+    await proxyPoolManager.removeProxy(companyId, id);
+    const pool = await proxyPoolManager.getPoolSummary(companyId);
+    const assignments = await proxyPoolManager.getProfilesAssignmentList(companyId);
 
     res.json({
       success: true,
-      message: 'Proxy eliminado del pool y cuentas reasignadas automáticamente.',
+      message: 'Proxy eliminado del pool de la empresa y cuentas reasignadas automáticamente.',
+      companyId: pool.companyId,
+      companyName: pool.companyName,
       stats: pool.stats,
       proxies: pool.proxies,
       assignments
@@ -81,17 +109,24 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /admin/proxies/rebalance - Force rebalance across all profiles
+// POST /admin/proxies/rebalance - Force rebalance across profiles of this company
 router.post('/rebalance', async (req, res) => {
+  const companyId = resolveCompanyId(req);
+  if (!companyId) {
+    return res.status(400).json({ error: 'Debe especificar el ID de la empresa (companyId)' });
+  }
+
   try {
-    const result = await proxyPoolManager.rebalanceAllProfiles();
-    const pool = await proxyPoolManager.getPoolSummary();
-    const assignments = await proxyPoolManager.getProfilesAssignmentList();
+    const result = await proxyPoolManager.rebalanceCompanyProfiles(companyId);
+    const pool = await proxyPoolManager.getPoolSummary(companyId);
+    const assignments = await proxyPoolManager.getProfilesAssignmentList(companyId);
 
     res.json({
       success: true,
-      message: 'Asignación de proxies rebalanceada con éxito.',
+      message: `Asignación de proxies de ${pool.companyName} rebalanceada con éxito.`,
       result,
+      companyId: pool.companyId,
+      companyName: pool.companyName,
       stats: pool.stats,
       proxies: pool.proxies,
       assignments

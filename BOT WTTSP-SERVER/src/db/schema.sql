@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS proxy_pool (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     proxy_url VARCHAR(500) NOT NULL,
     label VARCHAR(100),
     max_capacity INTEGER DEFAULT 20,

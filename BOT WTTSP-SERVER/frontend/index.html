@@ -65,10 +65,6 @@
                         <span class="nav-icon"><i data-lucide="megaphone"></i></span>
                         <span class="nav-text">Anuncios Globales</span>
                     </a>
-                    <a class="nav-item hidden" id="nav-proxies" data-view="view-proxies">
-                        <span class="nav-icon"><i data-lucide="server"></i></span>
-                        <span class="nav-text">Pool de Proxies</span>
-                    </a>
 
                     <!-- Operator Navigation (Visible only for Operators) -->
                     <a class="nav-item hidden" id="nav-operator-bots" data-view="view-operator-bots">
@@ -80,6 +76,10 @@
                     <a class="nav-item active" id="nav-metrics" data-view="view-metrics">
                         <span class="nav-icon"><i data-lucide="bar-chart-3"></i></span>
                         <span class="nav-text">Métricas & Reportes</span>
+                    </a>
+                    <a class="nav-item" id="nav-proxies" data-view="view-proxies">
+                        <span class="nav-icon"><i data-lucide="server"></i></span>
+                        <span class="nav-text">Pool de Proxies</span>
                     </a>
                     <a class="nav-item" id="nav-distribution" data-view="view-distribution">
                         <span class="nav-icon"><i data-lucide="send"></i></span>
@@ -164,9 +164,6 @@
                             <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">Seleccioná una empresa para entrar a gestionar sus métricas, administradores, operadores, WhatsApps y colas.</p>
                         </div>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <button id="btn-open-superadmin-proxies" class="btn-secondary" onclick="switchView('view-proxies')" style="display: flex; align-items: center; gap: 6px;">
-                                <i data-lucide="server"></i> Pool de Proxies
-                            </button>
                             <button id="btn-open-superadmin-announcements" class="btn-secondary" onclick="switchView('view-announcements')" style="display: flex; align-items: center; gap: 6px;">
                                 <i data-lucide="megaphone"></i> Anuncios Globales
                             </button>
@@ -589,15 +586,15 @@
                 <div class="panel">
                     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                         <div style="display: flex; align-items: center; gap: 14px;">
-                            <button id="btn-back-from-proxies" class="btn-secondary" onclick="switchView('view-companies')" style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12.5px;">
+                            <button id="btn-back-from-proxies" class="btn-secondary" onclick="returnFromProxiesView()" style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12.5px;">
                                 <i data-lucide="arrow-left"></i> Volver
                             </button>
                             <div>
                                 <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
-                                    <i data-lucide="server" style="color: var(--accent-pink);"></i> Pool Centralizado de Proxies (IPs por Lotes)
+                                    <i data-lucide="server" style="color: var(--accent-pink);"></i> Pool de Proxies — <span id="proxies-company-title" style="color: var(--accent-pink);">Empresa</span>
                                 </h3>
                                 <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; margin-bottom: 0;">
-                                    Asignación automática de hasta 20 WhatsApps por IP. Las cuentas que excedan la capacidad se conectan directo por la VPS.
+                                    Asignación exclusiva para las cuentas de esta empresa (hasta 20 WhatsApps por IP).
                                 </p>
                             </div>
                         </div>
@@ -1567,7 +1564,7 @@
     <script src="js/lucide.min.js?v=20260918_v1"></script>
     <script src="js/icons-helper.js?v=20260918_v1"></script>
     <script src="js/dialog.js?v=20260918_v1"></script>
-    <script src="js/app.js?v=20260918_v10"></script>
+    <script src="js/app.js?v=20260918_v11"></script>
     <script src="js/operator-view.js?v=20260918_v6"></script>
     <script src="js/distribution-view.js?v=20260918_v3"></script>
 </body>

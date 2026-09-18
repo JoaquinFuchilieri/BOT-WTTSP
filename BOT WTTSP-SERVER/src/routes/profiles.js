@@ -149,8 +149,8 @@ router.post('/', async (req, res) => {
       [compId, effectiveAssignedUserId || null, name.trim(), message, cleanCategory, delayMin, delayMax, batchSize, batchPauseMin, batchPauseMax, dailyLimit]
     );
 
-    // Auto-assign proxy slot from pool in groups of 20 (or VPS fallback)
-    proxyPoolManager.rebalanceAllProfiles().catch(e => console.error('[Profile Auto-Assign Error]:', e.message));
+    // Auto-assign proxy slot from pool in groups of 20 (or VPS fallback) for this company
+    proxyPoolManager.rebalanceCompanyProfiles(compId).catch(e => console.error('[Profile Auto-Assign Error]:', e.message));
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -476,10 +476,15 @@ router.delete('/:id', async (req, res) => {
     await botEngine.stopBot(id);
     await baileysManager.unlinkSession(id);
 
+    const profCheck = await db.query('SELECT company_id FROM profiles WHERE id = $1', [id]);
+    const profCompId = profCheck.rows[0]?.company_id;
+
     await db.query('DELETE FROM profiles WHERE id = $1', [id]);
 
-    // Auto-rebalance proxies across remaining accounts
-    proxyPoolManager.rebalanceAllProfiles().catch(e => console.error('[Profile Rebalance Error]:', e.message));
+    // Auto-rebalance proxies across remaining accounts of this company
+    if (profCompId) {
+      proxyPoolManager.rebalanceCompanyProfiles(profCompId).catch(e => console.error('[Profile Rebalance Error]:', e.message));
+    }
 
     res.json({ message: 'Profile deleted successfully', id });
   } catch (err) {

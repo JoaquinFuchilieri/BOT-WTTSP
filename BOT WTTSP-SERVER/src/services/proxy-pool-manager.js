@@ -74,9 +74,13 @@ function parseProxies(text) {
 }
 
 /**
- * Add proxies in bulk to proxy_pool and rebalance profiles
+ * Add proxies in bulk to proxy_pool for a specific company and rebalance that company's profiles
  */
-async function addProxiesBulk(rawText, maxCapacity = 20) {
+async function addProxiesBulk(companyId, rawText, maxCapacity = 20) {
+  if (!companyId) {
+    throw new Error('companyId es obligatorio para cargar proxies');
+  }
+
   const parsed = parseProxies(rawText);
   if (parsed.length === 0) {
     throw new Error('No se encontraron URLs o líneas de proxies válidas para cargar');
@@ -85,19 +89,22 @@ async function addProxiesBulk(rawText, maxCapacity = 20) {
   let addedCount = 0;
   for (const pUrl of parsed) {
     const meta = getProxyMetadata(pUrl);
-    // Check if already exists in pool
-    const check = await db.query('SELECT id FROM proxy_pool WHERE proxy_url = $1', [pUrl]);
+    // Check if already exists in this company's pool
+    const check = await db.query(
+      'SELECT id FROM proxy_pool WHERE company_id = $1 AND proxy_url = $2',
+      [companyId, pUrl]
+    );
     if (check.rows.length === 0) {
       await db.query(
-        'INSERT INTO proxy_pool (proxy_url, label, max_capacity, is_active) VALUES ($1, $2, $3, TRUE)',
-        [pUrl, meta.label, maxCapacity]
+        'INSERT INTO proxy_pool (company_id, proxy_url, label, max_capacity, is_active) VALUES ($1, $2, $3, $4, TRUE)',
+        [companyId, pUrl, meta.label, maxCapacity]
       );
       addedCount++;
     }
   }
 
-  // Automatically rebalance all profiles across the active proxy pool
-  await rebalanceAllProfiles();
+  // Automatically rebalance only this company's profiles
+  await rebalanceCompanyProfiles(companyId);
 
   return {
     added: addedCount,
@@ -106,42 +113,52 @@ async function addProxiesBulk(rawText, maxCapacity = 20) {
 }
 
 /**
- * Delete a proxy from the pool and rebalance
+ * Delete a proxy from the company's pool and rebalance that company's profiles
  */
-async function removeProxy(proxyId) {
-  const check = await db.query('SELECT id, label FROM proxy_pool WHERE id = $1', [proxyId]);
-  if (check.rows.length === 0) {
-    throw new Error('Proxy no encontrado en el pool');
+async function removeProxy(companyId, proxyId) {
+  if (!companyId) {
+    throw new Error('companyId es obligatorio para eliminar un proxy');
   }
 
-  await db.query('DELETE FROM proxy_pool WHERE id = $1', [proxyId]);
-  await rebalanceAllProfiles();
+  const check = await db.query(
+    'SELECT id, label FROM proxy_pool WHERE id = $1 AND company_id = $2',
+    [proxyId, companyId]
+  );
+  if (check.rows.length === 0) {
+    throw new Error('Proxy no encontrado en el pool de esta empresa');
+  }
+
+  await db.query('DELETE FROM proxy_pool WHERE id = $1 AND company_id = $2', [proxyId, companyId]);
+  await rebalanceCompanyProfiles(companyId);
 
   return { success: true, deletedId: proxyId };
 }
 
 /**
- * Core Auto-Assignment Algorithm:
- * - Fetches all active proxies in proxy_pool (ordered by created_at ASC)
- * - Fetches all profiles in profiles (ordered by created_at ASC)
- * - Assigns 20 profiles to Proxy 1, next 20 to Proxy 2, etc.
- * - Remaining overflow profiles receive proxy_id = NULL and proxy_url = NULL (Direct VPS IP)
- * - Reconnects running Baileys sessions if their assigned proxy changed
+ * Auto-Assignment Algorithm Scoped strictly to ONE Company:
+ * - Fetches active proxies belonging exclusively to companyId
+ * - Fetches profiles belonging exclusively to companyId
+ * - Assigns up to 20 profiles per proxy within this company
+ * - Remaining overflow profiles receive proxy_id = NULL and proxy_url = NULL (Direct VPS)
+ * - Reconnects Baileys sessions for this company if proxy changed
  */
-async function rebalanceAllProfiles() {
+async function rebalanceCompanyProfiles(companyId) {
+  if (!companyId) return { totalProfiles: 0, updatedProfiles: 0, activeProxiesCount: 0 };
+
   const proxiesRes = await db.query(
-    'SELECT id, proxy_url, label, max_capacity FROM proxy_pool WHERE is_active = TRUE ORDER BY created_at ASC'
+    'SELECT id, proxy_url, label, max_capacity FROM proxy_pool WHERE company_id = $1 AND is_active = TRUE ORDER BY created_at ASC',
+    [companyId]
   );
   const proxies = proxiesRes.rows;
 
   const profilesRes = await db.query(
-    'SELECT id, name, proxy_id, proxy_url FROM profiles ORDER BY created_at ASC'
+    'SELECT id, name, proxy_id, proxy_url FROM profiles WHERE company_id = $1 ORDER BY created_at ASC',
+    [companyId]
   );
   const profiles = profilesRes.rows;
 
   const updates = [];
 
-  // Build slot allocation
   let proxyIdx = 0;
   let countInCurrentProxy = 0;
 
@@ -178,15 +195,15 @@ async function rebalanceAllProfiles() {
   // Apply updates to DB
   for (const u of updates) {
     await db.query(
-      'UPDATE profiles SET proxy_id = $1, proxy_url = $2 WHERE id = $3',
-      [u.newProxyId, u.newProxyUrl, u.profileId]
+      'UPDATE profiles SET proxy_id = $1, proxy_url = $2 WHERE id = $3 AND company_id = $4',
+      [u.newProxyId, u.newProxyUrl, u.profileId, companyId]
     );
 
     // If session is active and proxy changed, reconnect with the new IP
     if (baileysManager && typeof baileysManager.getSession === 'function') {
       const sess = baileysManager.getSession(u.profileId);
       if (sess && sess.status !== 'disconnected') {
-        console.log(`[ProxyPool] Profile '${u.name}' assigned new proxy. Reconnecting session...`);
+        console.log(`[ProxyPool] Profile '${u.name}' (Empresa: ${companyId}) assigned new proxy. Reconnecting session...`);
         baileysManager.disconnectSession(u.profileId)
           .then(() => baileysManager.initSession(u.profileId))
           .catch(e => console.error(`[ProxyPool] Reconnect error for ${u.profileId}:`, e.message));
@@ -202,20 +219,49 @@ async function rebalanceAllProfiles() {
 }
 
 /**
- * Get summary stats and list of pool proxies with assigned counts
+ * Backwards-compatible / Global rebalancer: iterates each company and balances internally
  */
-async function getPoolSummary() {
+async function rebalanceAllProfiles() {
+  const companiesRes = await db.query('SELECT id FROM companies');
+  let totalProfiles = 0;
+  let updatedProfiles = 0;
+  let totalActiveProxies = 0;
+
+  for (const comp of companiesRes.rows) {
+    const res = await rebalanceCompanyProfiles(comp.id);
+    totalProfiles += res.totalProfiles;
+    updatedProfiles += res.updatedProfiles;
+    totalActiveProxies += res.activeProxiesCount;
+  }
+
+  return {
+    totalProfiles,
+    updatedProfiles,
+    activeProxiesCount: totalActiveProxies
+  };
+}
+
+/**
+ * Get summary stats and list of pool proxies for a specific company
+ */
+async function getPoolSummary(companyId) {
+  if (!companyId) {
+    throw new Error('companyId es obligatorio para obtener el pool de proxies');
+  }
+
   const proxiesRes = await db.query(
-    `SELECT p.id, p.proxy_url, p.label, p.max_capacity, p.is_active, p.created_at,
+    `SELECT p.id, p.company_id, p.proxy_url, p.label, p.max_capacity, p.is_active, p.created_at,
             COUNT(pr.id)::int as assigned_count
      FROM proxy_pool p
      LEFT JOIN profiles pr ON pr.proxy_id = p.id
+     WHERE p.company_id = $1
      GROUP BY p.id
-     ORDER BY p.created_at ASC`
+     ORDER BY p.created_at ASC`,
+    [companyId]
   );
 
-  const totalProfilesRes = await db.query('SELECT COUNT(*)::int as total FROM profiles');
-  const directVpsRes = await db.query('SELECT COUNT(*)::int as direct FROM profiles WHERE proxy_id IS NULL');
+  const totalProfilesRes = await db.query('SELECT COUNT(*)::int as total FROM profiles WHERE company_id = $1', [companyId]);
+  const directVpsRes = await db.query('SELECT COUNT(*)::int as direct FROM profiles WHERE company_id = $1 AND proxy_id IS NULL', [companyId]);
 
   const totalProfiles = totalProfilesRes.rows[0]?.total || 0;
   const directVpsCount = directVpsRes.rows[0]?.direct || 0;
@@ -225,6 +271,7 @@ async function getPoolSummary() {
     const meta = getProxyMetadata(p.proxy_url);
     return {
       id: p.id,
+      companyId: p.company_id,
       label: p.label || meta.label,
       protocol: meta.protocol,
       maskedUrl: meta.maskedUrl,
@@ -237,7 +284,13 @@ async function getPoolSummary() {
 
   const totalCapacity = proxies.reduce((acc, p) => acc + p.max_capacity, 0);
 
+  // Get company name
+  const compRes = await db.query('SELECT name FROM companies WHERE id = $1', [companyId]);
+  const companyName = compRes.rows[0]?.name || 'Empresa';
+
   return {
+    companyId,
+    companyName,
     stats: {
       totalProxies: proxies.length,
       totalCapacity,
@@ -250,9 +303,13 @@ async function getPoolSummary() {
 }
 
 /**
- * Get detailed table of WhatsApp accounts and their assigned proxy / IP
+ * Get detailed table of WhatsApp accounts for a specific company and their assigned proxy / IP
  */
-async function getProfilesAssignmentList() {
+async function getProfilesAssignmentList(companyId) {
+  if (!companyId) {
+    throw new Error('companyId es obligatorio para obtener la asignación de proxies');
+  }
+
   const res = await db.query(`
     SELECT p.id, p.name, p.status, p.phone_number, p.sent_today, p.daily_limit,
            p.proxy_id, p.proxy_url,
@@ -263,8 +320,9 @@ async function getProfilesAssignmentList() {
     LEFT JOIN users u ON p.assigned_user_id = u.id
     LEFT JOIN companies c ON p.company_id = c.id
     LEFT JOIN proxy_pool pp ON p.proxy_id = pp.id
+    WHERE p.company_id = $1
     ORDER BY pp.created_at ASC NULLS LAST, p.created_at ASC
-  `);
+  `, [companyId]);
 
   return res.rows.map(r => {
     let assignedDisplay = 'Conexión Directa VPS';
@@ -296,6 +354,7 @@ module.exports = {
   parseProxies,
   addProxiesBulk,
   removeProxy,
+  rebalanceCompanyProfiles,
   rebalanceAllProfiles,
   getPoolSummary,
   getProfilesAssignmentList

@@ -313,7 +313,11 @@ function showAppShell() {
     if (currentUser.role === 'superadmin') {
         document.getElementById('nav-companies').classList.remove('hidden');
         document.getElementById('nav-announcements').classList.remove('hidden');
-        if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.remove('hidden');
+        // Nav-proxies is tenant-scoped now: show if activeCompanyId exists
+        if (document.getElementById('nav-proxies')) {
+            if (activeCompanyId) document.getElementById('nav-proxies').classList.remove('hidden');
+            else document.getElementById('nav-proxies').classList.add('hidden');
+        }
         document.getElementById('nav-admins').classList.remove('hidden');
         document.getElementById('nav-operators').classList.remove('hidden');
         document.getElementById('nav-blacklist').classList.remove('hidden');
@@ -328,16 +332,15 @@ function showAppShell() {
         const savedCompName = localStorage.getItem('saas_active_company_name');
         const savedCompStatus = localStorage.getItem('saas_active_company_status');
 
-        if (savedCompId && savedView && savedView !== 'view-companies' && savedView !== 'view-announcements' && savedView !== 'view-proxies') {
+        if (savedCompId && savedView && savedView !== 'view-companies' && savedView !== 'view-announcements') {
             activeCompanyId = savedCompId;
             activeCompanyName = savedCompName || 'Empresa';
             activeCompanyStatus = savedCompStatus || 'active';
+            if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.remove('hidden');
             updateBreadcrumb();
             switchView(savedView);
         } else if (savedView === 'view-announcements') {
             switchView('view-announcements');
-        } else if (savedView === 'view-proxies') {
-            switchView('view-proxies');
         } else {
             switchView('view-companies');
         }
@@ -372,7 +375,7 @@ function showAppShell() {
         // COMPANY ADMIN
         document.getElementById('nav-companies').classList.add('hidden');
         document.getElementById('nav-announcements').classList.add('hidden');
-        if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.add('hidden');
+        if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.remove('hidden');
         document.getElementById('nav-admins').classList.add('hidden');
         if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.add('hidden');
         document.getElementById('nav-blacklist').classList.remove('hidden');
@@ -389,7 +392,7 @@ function showAppShell() {
         updateBreadcrumb();
         loadAdminAnnouncementsInbox();
 
-        const validViews = ['view-metrics', 'view-distribution', 'view-blacklist', 'view-operators', 'view-reports', 'view-admin-announcements'];
+        const validViews = ['view-metrics', 'view-proxies', 'view-distribution', 'view-blacklist', 'view-operators', 'view-reports', 'view-admin-announcements'];
         if (savedView && validViews.includes(savedView)) {
             switchView(savedView);
         } else {
@@ -402,7 +405,7 @@ function showAppShell() {
     metricsPollInterval = setInterval(async () => {
         const activeView = localStorage.getItem('saas_active_view');
         try {
-            if (activeView === 'view-proxies' && currentUser && currentUser.role === 'superadmin') {
+            if (activeView === 'view-proxies' && currentUser && (currentUser.role === 'admin' || (currentUser.role === 'superadmin' && activeCompanyId))) {
                 await loadProxiesPoolView();
             } else if (activeView === 'view-companies' && currentUser && currentUser.role === 'superadmin') {
                 await loadCompaniesDirectory();
@@ -434,8 +437,8 @@ function updateBreadcrumb(currentViewId) {
 
     if (currentUser.role === 'superadmin') {
         if (vId === 'view-proxies') {
-            rootEl.textContent = 'SuperAdmin:';
-            compEl.textContent = 'Pool Centralizado de Proxies';
+            rootEl.textContent = 'Empresa:';
+            compEl.textContent = `${activeCompanyName || 'Empresa'} (Pool de Proxies)`;
             switchBtn.classList.remove('hidden');
         } else if (vId === 'view-reports') {
             rootEl.textContent = 'Soporte:';
@@ -462,6 +465,9 @@ function updateBreadcrumb(currentViewId) {
         if (vId === 'view-admin-announcements') {
             rootEl.textContent = 'Empresa:';
             compEl.textContent = 'Anuncios del Sistema';
+        } else if (vId === 'view-proxies') {
+            rootEl.textContent = 'Empresa:';
+            compEl.textContent = `${activeCompanyName || 'Mi Empresa'} (Pool de Proxies)`;
         } else {
             rootEl.textContent = 'Empresa:';
             compEl.textContent = activeCompanyName;
@@ -484,13 +490,19 @@ function switchView(viewId) {
     const sidebar = document.getElementById('sidebar');
 
     // If non-superadmin tries to open audit, restrict and redirect
-    if ((viewId === 'view-audit' || viewId === 'view-proxies') && currentUser && currentUser.role !== 'superadmin') {
+    if (viewId === 'view-audit' && currentUser && currentUser.role !== 'superadmin') {
         toast('Acceso restringido: Auditoría es exclusivo para SuperAdmin', 'error');
         viewId = currentUser.role === 'admin' ? 'view-metrics' : 'view-operator-bots';
     }
 
+    // Operators cannot access proxies
+    if (viewId === 'view-proxies' && currentUser && currentUser.role === 'user') {
+        toast('Acceso restringido: Los operadores no configuran proxies', 'error');
+        viewId = 'view-operator-bots';
+    }
+
     // If SuperAdmin tries to open an in-company view without an active company, redirect to company directory
-    const globalSuperadminViews = ['view-companies', 'view-reports', 'view-announcements', 'view-proxies'];
+    const globalSuperadminViews = ['view-companies', 'view-reports', 'view-announcements'];
     if (currentUser && currentUser.role === 'superadmin' && !activeCompanyId && !globalSuperadminViews.includes(viewId)) {
         toast('Seleccioná una empresa del directorio primero', 'error');
         viewId = 'view-companies';
@@ -624,14 +636,19 @@ async function loadCompaniesDirectory() {
                         <button title="Ver y Gestionar Operadores de la Empresa" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="enterCompanyOperators('${c.id}', '${c.name.replace(/'/g, "\\'")}', '${c.status}')">
                             ${getLucideSvg('users', 13)} Operadores
                         </button>
-                        <button title="Configuración de Límites" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyLimitsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.user_limit || 5}, ${c.whatsapp_limit || 10})">
-                            ${getLucideSvg('sliders', 13)} Límites
+                        <button title="Pool de Proxies Exclusivo de la Empresa" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px; color: var(--accent-pink); border-color: rgba(224, 77, 128, 0.35);" onclick="enterCompanyProxies('${c.id}', '${c.name.replace(/'/g, "\\'")}', '${c.status}')">
+                            ${getLucideSvg('server', 13)} Proxies
                         </button>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button title="Configuración de Cooldown y Anti-Ban" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px; color: var(--accent-pink); border-color: rgba(224, 77, 128, 0.35);" onclick="openCompanyAntibanModal('${c.id}', '${c.name.replace(/'/g, "\\'")}')">
+                        <button title="Configuración de Límites" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyLimitsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.user_limit || 5}, ${c.whatsapp_limit || 10})">
+                            ${getLucideSvg('sliders', 13)} Límites
+                        </button>
+                        <button title="Configuración de Cooldown y Anti-Ban" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyAntibanModal('${c.id}', '${c.name.replace(/'/g, "\\'")}')">
                             ${getLucideSvg('shield-alert', 13)} Anti-Ban
                         </button>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
                         <button class="${isSuspended ? 'btn-success' : 'btn-danger'}" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="toggleCompanyStatus('${c.id}', '${c.status}')">
                             ${isSuspended ? getLucideSvg('play', 13) + ' Activar' : getLucideSvg('pause', 13) + ' Suspender'}
                         </button>
@@ -757,6 +774,25 @@ function enterCompanyOperators(companyId, companyName, status) {
     toast(`Gestionando operadores de: ${companyName}`);
 }
 window.enterCompanyOperators = enterCompanyOperators;
+
+function enterCompanyProxies(companyId, companyName, status) {
+    activeCompanyId = companyId;
+    activeCompanyName = companyName;
+    activeCompanyStatus = status;
+    updateBreadcrumb();
+    switchView('view-proxies');
+    toast(`Gestionando pool de proxies de: ${companyName}`);
+}
+window.enterCompanyProxies = enterCompanyProxies;
+
+function returnFromProxiesView() {
+    if (currentUser && currentUser.role === 'superadmin') {
+        switchView('view-companies');
+    } else {
+        switchView('view-metrics');
+    }
+}
+window.returnFromProxiesView = returnFromProxiesView;
 
 async function openCompanyAntibanModal(companyId, companyName) {
     const cid = companyId || activeCompanyId;
@@ -3512,14 +3548,36 @@ window.handleResetHelpManual = handleResetHelpManual;
 
 
 
-// ================= CENTRALIZED PROXY POOL (SUPERADMIN ONLY) =================
+// ================= ISOLATED COMPANY PROXY POOL (COMPANY ADMIN & SUPERADMIN) =================
+function getProxiesTargetCompanyId() {
+    if (!currentUser) return null;
+    if (currentUser.role === 'superadmin') {
+        return activeCompanyId;
+    }
+    return currentUser.companyId;
+}
+
 async function loadProxiesPoolView() {
-    if (!currentUser || currentUser.role !== 'superadmin') {
-        return toast('Acceso restringido: Solo el SuperAdmin puede gestionar el Pool de Proxies', 'error');
+    if (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'admin')) {
+        return toast('Acceso restringido: Solo Administradores pueden gestionar el Pool de Proxies', 'error');
+    }
+
+    const targetCompanyId = getProxiesTargetCompanyId();
+    if (!targetCompanyId) {
+        toast('Selecciona una empresa del directorio primero', 'warning');
+        if (currentUser.role === 'superadmin') switchView('view-companies');
+        return;
+    }
+
+    // Update company title label in the proxies view header
+    const titleEl = document.getElementById('proxies-company-title');
+    if (titleEl) {
+        titleEl.textContent = activeCompanyName || (currentUser.role === 'admin' ? (currentUser.companyName || 'Mi Empresa') : 'Empresa');
     }
 
     try {
-        const data = await api('/admin/proxies');
+        const query = currentUser.role === 'superadmin' ? `?companyId=${encodeURIComponent(targetCompanyId)}` : '';
+        const data = await api(`/admin/proxies${query}`);
         if (!data) return;
 
         const stats = data.stats || {};
@@ -3540,7 +3598,7 @@ async function loadProxiesPoolView() {
                 proxiesTbody.innerHTML = `
                     <tr>
                         <td colspan="7" style="text-align: center; color: var(--text-tertiary); padding: 28px;">
-                            No hay proxies cargados en el pool. Todas las cuentas de WhatsApp se conectan automáticamente usando la IP directa de la VPS.
+                            No hay proxies cargados en esta empresa. Todas sus cuentas de WhatsApp se conectan automáticamente usando la IP directa de la VPS.
                         </td>
                     </tr>
                 `;
@@ -3577,7 +3635,7 @@ async function loadProxiesPoolView() {
                 assignTbody.innerHTML = `
                     <tr>
                         <td colspan="5" style="text-align: center; color: var(--text-tertiary); padding: 28px;">
-                            No hay cuentas de WhatsApp configuradas en el sistema.
+                            No hay cuentas de WhatsApp configuradas en esta empresa.
                         </td>
                     </tr>
                 `;
@@ -3615,8 +3673,13 @@ async function loadProxiesPoolView() {
 }
 
 async function handleBulkAddProxies() {
-    if (!currentUser || currentUser.role !== 'superadmin') {
-        return toast('Acceso restringido: Solo el SuperAdmin puede agregar proxies', 'error');
+    if (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'admin')) {
+        return toast('Acceso restringido: Solo Administradores pueden agregar proxies', 'error');
+    }
+
+    const targetCompanyId = getProxiesTargetCompanyId();
+    if (!targetCompanyId) {
+        return toast('No hay una empresa seleccionada', 'warning');
     }
 
     const input = document.getElementById('pool-proxies-input');
@@ -3635,7 +3698,7 @@ async function handleBulkAddProxies() {
     try {
         const res = await api('/admin/proxies/bulk', {
             method: 'POST',
-            body: JSON.stringify({ text })
+            body: JSON.stringify({ text, companyId: targetCompanyId })
         });
 
         toast(res.message || 'Proxies cargados y asignados exitosamente');
@@ -3653,13 +3716,18 @@ async function handleBulkAddProxies() {
 }
 
 async function handleDeleteProxy(proxyId) {
-    if (!currentUser || currentUser.role !== 'superadmin') {
-        return toast('Acceso restringido: Solo el SuperAdmin puede eliminar proxies', 'error');
+    if (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'admin')) {
+        return toast('Acceso restringido: Solo Administradores pueden eliminar proxies', 'error');
+    }
+
+    const targetCompanyId = getProxiesTargetCompanyId();
+    if (!targetCompanyId) {
+        return toast('No hay una empresa seleccionada', 'warning');
     }
 
     const ok = await showConfirm({
         title: 'Eliminar Proxy del Pool',
-        message: '¿Estás seguro de eliminar este proxy? Las cuentas de WhatsApp que lo usaban se rebalancearán automáticamente a las IPs restantes o volverán a la conexión directa por VPS.',
+        message: '¿Estás seguro de eliminar este proxy? Las cuentas de WhatsApp de esta empresa que lo usaban se rebalancearán automáticamente a las IPs restantes de la empresa o volverán a la conexión directa por VPS.',
         confirmText: 'Eliminar Proxy',
         cancelText: 'Cancelar',
         type: 'danger'
@@ -3668,7 +3736,8 @@ async function handleDeleteProxy(proxyId) {
     if (!ok) return;
 
     try {
-        const res = await api(`/admin/proxies/${proxyId}`, {
+        const query = currentUser.role === 'superadmin' ? `?companyId=${encodeURIComponent(targetCompanyId)}` : '';
+        const res = await api(`/admin/proxies/${proxyId}${query}`, {
             method: 'DELETE'
         });
 
@@ -3680,8 +3749,13 @@ async function handleDeleteProxy(proxyId) {
 }
 
 async function handleRebalanceProxies() {
-    if (!currentUser || currentUser.role !== 'superadmin') {
-        return toast('Acceso restringido: Solo el SuperAdmin puede rebalancear proxies', 'error');
+    if (!currentUser || (currentUser.role !== 'superadmin' && currentUser.role !== 'admin')) {
+        return toast('Acceso restringido: Solo Administradores pueden rebalancear proxies', 'error');
+    }
+
+    const targetCompanyId = getProxiesTargetCompanyId();
+    if (!targetCompanyId) {
+        return toast('No hay una empresa seleccionada', 'warning');
     }
 
     const btn = document.getElementById('btn-rebalance-proxies');
@@ -3692,7 +3766,8 @@ async function handleRebalanceProxies() {
 
     try {
         const res = await api('/admin/proxies/rebalance', {
-            method: 'POST'
+            method: 'POST',
+            body: JSON.stringify({ companyId: targetCompanyId })
         });
 
         toast(res.message || 'Cuentas rebalanceadas exitosamente');
