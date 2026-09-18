@@ -50,18 +50,22 @@ function initDistributionView() {
             return;
         }
 
+        const categorySelect = document.getElementById('distribution-category');
+        const category = categorySelect ? categorySelect.value : 'Movistar';
+
         previewBtn.disabled = true;
         previewBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Analizando...';
 
         try {
             const data = await api('/distribution/preview', {
                 method: 'POST',
-                body: JSON.stringify({ numbersRaw: text })
+                body: JSON.stringify({ numbersRaw: text, category })
             });
 
             distributionPreviewData = data;
+            distributionPreviewData.selectedCategory = category;
             renderDistributionPreview(data);
-            toast(`Se detectaron ${data.totalClean} números válidos`, 'success');
+            toast(`Se detectaron ${data.totalClean} números para la clase ${category}`, 'success');
         } catch (err) {
             console.error('[DistributionView] Preview error:', err);
             toast(`Error: ${err.message}`, 'error');
@@ -81,9 +85,18 @@ function initDistributionView() {
                 return;
             }
 
-            if (!confirm(`¿Confirmas la distribución de ${distributionPreviewData.totalClean} números entre los bots de la empresa?`)) {
-                return;
-            }
+            const categorySelect = document.getElementById('distribution-category');
+            const category = categorySelect ? categorySelect.value : (distributionPreviewData.selectedCategory || 'Movistar');
+
+            const confirmed = window.showConfirm ? await window.showConfirm({
+                title: 'Confirmar Reparto Masivo',
+                message: `¿Confirmas la distribución de ${distributionPreviewData.totalClean} contactos entre los bots de la clase "${category}"?`,
+                confirmText: 'Distribuir en Colas',
+                cancelText: 'Cancelar',
+                type: 'primary'
+            }) : confirm(`¿Confirmas la distribución de ${distributionPreviewData.totalClean} contactos entre los bots de la clase "${category}"?`);
+
+            if (!confirmed) return;
 
             executeBtn.disabled = true;
             executeBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Distribuyendo en colas...';
@@ -91,7 +104,7 @@ function initDistributionView() {
             try {
                 const res = await api('/distribution/execute', {
                     method: 'POST',
-                    body: JSON.stringify({ numbersRaw: text })
+                    body: JSON.stringify({ numbersRaw: text, category })
                 });
 
                 toast(res.message || 'Números distribuidos con éxito', 'success');
@@ -150,7 +163,7 @@ function renderDistributionPreview(data) {
         tableBody.innerHTML = '';
 
         if (!data.distribution || data.distribution.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="3" style="padding:14px; text-align:center; color:var(--text-secondary);">No hay bots disponibles para recibir números.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="4" style="padding:14px; text-align:center; color:var(--text-secondary);">No hay bots disponibles en la clase seleccionada para recibir números.</td></tr>';
             return;
         }
 
@@ -166,6 +179,11 @@ function renderDistributionPreview(data) {
             tr.innerHTML = `
                 <td style="padding: 10px 12px; font-weight: 600; color: var(--text-primary);">
                     ${statusDot} ${escapeHtml(d.name)}
+                </td>
+                <td style="padding: 10px 12px;">
+                    <span class="badge" style="background: rgba(233,69,96,0.15); color: var(--accent-pink); border: 1px solid rgba(233,69,96,0.3); font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 600;">
+                        ${escapeHtml(d.category || 'Movistar')}
+                    </span>
                 </td>
                 <td style="padding: 10px 12px; color: var(--text-secondary);">
                     ${escapeHtml(d.operatorEmail)}

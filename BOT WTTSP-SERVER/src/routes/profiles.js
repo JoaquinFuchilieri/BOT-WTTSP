@@ -58,12 +58,14 @@ router.get('/', async (req, res) => {
 
 // POST /profiles - Create profile (Admin or SuperAdmin)
 router.post('/', async (req, res) => {
-  const { name, message = '', assigned_user_id } = req.body;
+  const { name, message = '', assigned_user_id, category } = req.body;
   const companyId = req.user.companyId;
 
-  if (!name) {
+  if (!name || !name.trim()) {
     return res.status(400).json({ error: 'El nombre de la cuenta es obligatorio' });
   }
+
+  const cleanCategory = (category && category.trim()) ? category.trim() : 'Movistar';
 
   const compId = req.user.role === 'superadmin' && req.body.companyId ? req.body.companyId : companyId;
 
@@ -126,12 +128,12 @@ router.post('/', async (req, res) => {
     // Defaults for delays and anti-ban (managed strictly by SuperAdmin)
     const result = await db.query(
       `INSERT INTO profiles (
-        company_id, assigned_user_id, name, message, 
+        company_id, assigned_user_id, name, message, category,
         delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit,
         status, is_active_bot, sent_today, last_sent_date
-      ) VALUES ($1, $2, $3, $4, 115, 145, 15, 25, 30, 200, 'disconnected', FALSE, 0, CURRENT_DATE)
+      ) VALUES ($1, $2, $3, $4, $5, 115, 145, 15, 25, 30, 200, 'disconnected', FALSE, 0, CURRENT_DATE)
       RETURNING *`,
-      [compId, effectiveAssignedUserId || null, name.trim(), message]
+      [compId, effectiveAssignedUserId || null, name.trim(), message, cleanCategory]
     );
 
     // Auto-assign proxy slot from pool in groups of 20 (or VPS fallback)
@@ -190,7 +192,7 @@ router.get('/:id', async (req, res) => {
 router.patch('/:id/config', async (req, res) => {
   const { id } = req.params;
   const {
-    name, message, assigned_user_id,
+    name, message, assigned_user_id, category,
     delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit,
     work_schedule_enabled, work_schedule_start, work_schedule_end, work_schedule_days,
     warmup_enabled, warmup_day, warmup_daily_increment, warmup_max_limit,
@@ -204,9 +206,10 @@ router.patch('/:id/config', async (req, res) => {
     const values = [];
     let idx = 1;
 
-    // Both Operator and Admin can edit name & message
+    // Both Operator and Admin can edit name, message & category (product class)
     if (name !== undefined) { fields.push(`name = $${idx++}`); values.push(name.trim()); }
     if (message !== undefined) { fields.push(`message = $${idx++}`); values.push(message); }
+    if (category !== undefined) { fields.push(`category = $${idx++}`); values.push(category.trim()); }
 
     // Admin or SuperAdmin can reassign operator
     if (assigned_user_id !== undefined && req.user.role !== 'user') {

@@ -318,6 +318,7 @@ function showAppShell() {
         document.getElementById('nav-blacklist').classList.remove('hidden');
         document.getElementById('nav-audit').classList.remove('hidden');
         document.getElementById('nav-reports').classList.add('hidden');
+        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.remove('hidden');
         if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.add('hidden');
         if (document.getElementById('nav-admin-announcements')) document.getElementById('nav-admin-announcements').classList.add('hidden');
         if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.add('hidden');
@@ -354,13 +355,13 @@ function showAppShell() {
         if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.add('hidden');
 
         if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.remove('hidden');
-        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.add('hidden');
+        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.remove('hidden');
 
         activeCompanyId = currentUser.companyId;
         activeCompanyName = currentUser.companyName || 'Mi Empresa';
         updateBreadcrumb();
 
-        const validViews = ['view-operator-bots'];
+        const validViews = ['view-operator-bots', 'view-distribution'];
         if (savedView && validViews.includes(savedView)) {
             switchView(savedView);
         } else {
@@ -378,7 +379,7 @@ function showAppShell() {
         document.getElementById('nav-reports').classList.remove('hidden');
         document.getElementById('nav-metrics').classList.remove('hidden');
         document.getElementById('nav-operators').classList.remove('hidden');
-        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.add('hidden');
+        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.remove('hidden');
         if (document.getElementById('nav-admin-announcements')) document.getElementById('nav-admin-announcements').classList.remove('hidden');
         if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.remove('hidden');
 
@@ -387,7 +388,7 @@ function showAppShell() {
         updateBreadcrumb();
         loadAdminAnnouncementsInbox();
 
-        const validViews = ['view-metrics', 'view-blacklist', 'view-operators', 'view-reports', 'view-admin-announcements'];
+        const validViews = ['view-metrics', 'view-distribution', 'view-blacklist', 'view-operators', 'view-reports', 'view-admin-announcements'];
         if (savedView && validViews.includes(savedView)) {
             switchView(savedView);
         } else {
@@ -1136,12 +1137,16 @@ function openAddNestedProfileModal() {
     document.getElementById('nested-profile-operator-label').textContent = `Creando cuenta para el ${roleLabel}: ${activeNestedOperatorEmail}`;
     document.getElementById('new-nested-profile-name').value = '';
     document.getElementById('new-nested-profile-message').value = '';
+    const newCatEl = document.getElementById('new-nested-profile-category');
+    if (newCatEl) newCatEl.value = 'Movistar';
     showModal('modal-nested-profile');
 }
 
 async function handleCreateNestedProfile() {
     const name = document.getElementById('new-nested-profile-name').value.trim();
     const message = document.getElementById('new-nested-profile-message').value.trim();
+    const categoryEl = document.getElementById('new-nested-profile-category');
+    const category = categoryEl ? categoryEl.value : 'Movistar';
 
     if (!name) return toast('Ingresá un nombre descriptivo para la cuenta', 'error');
 
@@ -1149,6 +1154,7 @@ async function handleCreateNestedProfile() {
         const body = {
             name,
             message,
+            category,
             assigned_user_id: activeNestedOperatorId
         };
         if (currentUser.role === 'superadmin' && activeCompanyId) {
@@ -2885,6 +2891,9 @@ async function openProfileConfigModal(profileId) {
         }
 
         // Base delays & limits
+        const catSelect = document.getElementById('cfg-category');
+        if (catSelect) catSelect.value = p.category || 'Movistar';
+
         document.getElementById('cfg-daily-limit').value = p.daily_limit || 200;
         document.getElementById('cfg-batch-size').value = p.batch_size || 15;
 
@@ -2929,6 +2938,9 @@ async function handleSaveProfileConfig() {
     const profileId = document.getElementById('profile-config-id').value;
     if (!profileId) return;
 
+    const catSelect = document.getElementById('cfg-category');
+    const category = catSelect ? catSelect.value : 'Movistar';
+
     const daily_limit = parseInt(document.getElementById('cfg-daily-limit').value, 10) || 200;
     const batch_size = parseInt(document.getElementById('cfg-batch-size').value, 10) || 15;
     const work_schedule_enabled = document.getElementById('cfg-work-schedule-enabled').checked;
@@ -2943,6 +2955,7 @@ async function handleSaveProfileConfig() {
         await api(`/profiles/${profileId}/config`, {
             method: 'PATCH',
             body: JSON.stringify({
+                category,
                 daily_limit,
                 batch_size,
                 work_schedule_enabled,
@@ -2951,8 +2964,7 @@ async function handleSaveProfileConfig() {
                 warmup_enabled,
                 warmup_day,
                 warmup_daily_increment,
-                warmup_max_limit,
-                proxy_url
+                warmup_max_limit
             })
         });
         toast('Configuración guardada exitosamente');

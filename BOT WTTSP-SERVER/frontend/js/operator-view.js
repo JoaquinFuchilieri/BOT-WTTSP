@@ -107,7 +107,12 @@ function renderOperatorBots(bots) {
                                 <i data-lucide="edit-3" style="width:14px; height:14px;"></i>
                             </button>
                         </div>
-                        <div class="bot-card-subtitle" id="bot-phone-${bot.id}">${phoneDisplay}</div>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:3px;">
+                            <span class="bot-card-subtitle" id="bot-phone-${bot.id}" style="margin:0;">${phoneDisplay}</span>
+                            <span class="badge" style="background: rgba(233,69,96,0.15); color: var(--accent-pink); border: 1px solid rgba(233,69,96,0.3); font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 600;">
+                                ${escapeHtml(bot.category || 'Movistar')}
+                            </span>
+                        </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${badgeHtml}
@@ -346,9 +351,11 @@ function openCreateOperatorBotModal() {
     const modal = document.getElementById('modal-create-operator-bot');
     const nameInput = document.getElementById('operator-bot-name');
     const msgInput = document.getElementById('operator-bot-message');
+    const catInput = document.getElementById('operator-bot-category');
 
     if (nameInput) nameInput.value = '';
     if (msgInput) msgInput.value = '';
+    if (catInput) catInput.value = 'Movistar';
 
     if (modal) modal.classList.remove('hidden');
     if (nameInput) setTimeout(() => nameInput.focus(), 50);
@@ -371,8 +378,10 @@ async function handleCreateOperatorBot() {
 
     const nameInput = document.getElementById('operator-bot-name');
     const msgInput = document.getElementById('operator-bot-message');
+    const catInput = document.getElementById('operator-bot-category');
     const name = nameInput ? nameInput.value.trim() : '';
     const message = msgInput ? msgInput.value.trim() : '';
+    const category = catInput ? catInput.value : 'Movistar';
 
     if (!name) {
         return toast('Por favor ingresa un nombre para la cuenta', 'warning');
@@ -387,7 +396,7 @@ async function handleCreateOperatorBot() {
     try {
         await api('/profiles', {
             method: 'POST',
-            body: JSON.stringify({ name, message })
+            body: JSON.stringify({ name, message, category })
         });
 
         toast('Instancia de WhatsApp creada exitosamente', 'success');

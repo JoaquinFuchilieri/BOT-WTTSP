@@ -81,9 +81,9 @@
                         <span class="nav-icon"><i data-lucide="bar-chart-3"></i></span>
                         <span class="nav-text">Métricas & Reportes</span>
                     </a>
-                    <a class="nav-item hidden" id="nav-distribution" data-view="view-distribution" style="display: none !important;">
+                    <a class="nav-item" id="nav-distribution" data-view="view-distribution">
                         <span class="nav-icon"><i data-lucide="send"></i></span>
-                        <span class="nav-text">Base de Datos de Números</span>
+                        <span class="nav-text">Reparto por Clase</span>
                     </a>
                     <a class="nav-item" id="nav-blacklist" data-view="view-blacklist">
                         <span class="nav-icon"><i data-lucide="shield-ban"></i></span>
@@ -781,6 +781,22 @@
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
                         <div>
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="distribution-category" style="font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                    <i data-lucide="tag" style="width: 15px; height: 15px; color: var(--accent-pink);"></i> Clase / Campaña de Producto:
+                                </label>
+                                <select id="distribution-category" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-hairline); background: var(--bg-card); color: var(--text-primary); font-size: 14px; font-weight: 600;">
+                                    <option value="Movistar">Movistar</option>
+                                    <option value="Claro">Claro</option>
+                                    <option value="DirecTV">DirecTV</option>
+                                    <option value="Personal">Personal</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                                <small style="display: block; margin-top: 5px; color: var(--text-secondary); font-size: 11.5px;">
+                                    Los números se distribuirán únicamente entre las cuentas activas asignadas a esta clase.
+                                </small>
+                            </div>
+
                             <div class="form-group">
                                 <label for="distribution-file-input">Subir archivo de contactos (.txt, .csv):</label>
                                 <div class="drag-drop-zone" id="distribution-drop-zone" onclick="document.getElementById('distribution-file-input').click()">
@@ -805,7 +821,7 @@
                             <div id="distribution-preview-placeholder" style="border: 1px dashed var(--border-hairline); border-radius: 14px; padding: 40px 20px; text-align: center; color: var(--text-secondary); height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                                 <i data-lucide="pie-chart" style="width: 44px; height: 44px; color: var(--text-tertiary); margin-bottom: 12px;"></i>
                                 <h4>Previsualización de Reparto</h4>
-                                <p style="font-size: 12.5px; max-width: 300px; margin-top: 6px;">Cargá o pegá los números a la izquierda y presioná "Analizar" para ver cómo se distribuirán entre tus bots activos.</p>
+                                <p style="font-size: 12.5px; max-width: 300px; margin-top: 6px;">Cargá o pegá los números a la izquierda y presioná "Analizar" para ver cómo se distribuirán entre tus bots activos de la clase seleccionada.</p>
                             </div>
 
                             <div id="distribution-preview-results" class="hidden">
@@ -830,6 +846,7 @@
                                         <thead>
                                             <tr style="background: rgba(255,255,255,0.02);">
                                                 <th style="padding: 8px 12px; text-align: left;">Cuenta WhatsApp</th>
+                                                <th style="padding: 8px 12px; text-align: left;">Clase</th>
                                                 <th style="padding: 8px 12px; text-align: left;">Operador</th>
                                                 <th style="padding: 8px 12px; text-align: right;">Números Asignados</th>
                                             </tr>
@@ -1041,6 +1058,16 @@
                 <input type="text" id="new-nested-profile-name" placeholder="Ej: Ventas WhatsApp 01">
             </div>
             <div class="form-group">
+                <label for="new-nested-profile-category">Clase / Producto de la cuenta:</label>
+                <select id="new-nested-profile-category" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-hairline); background: var(--bg-card); color: var(--text-primary); font-size: 14px;">
+                    <option value="Movistar">Movistar</option>
+                    <option value="Claro">Claro</option>
+                    <option value="DirecTV">DirecTV</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="new-nested-profile-message">Mensaje automático inicial:</label>
                 <textarea id="new-nested-profile-message" placeholder="Hola, te contacto para..."></textarea>
             </div>
@@ -1061,6 +1088,16 @@
             <div class="form-group">
                 <label for="operator-bot-name">Nombre descriptivo de la cuenta:</label>
                 <input type="text" id="operator-bot-name" placeholder="Ej: Mi WhatsApp de Ventas 01" required>
+            </div>
+            <div class="form-group">
+                <label for="operator-bot-category">Clase / Producto del Bot:</label>
+                <select id="operator-bot-category" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-hairline); background: var(--bg-card); color: var(--text-primary); font-size: 14px;">
+                    <option value="Movistar">Movistar</option>
+                    <option value="Claro">Claro</option>
+                    <option value="DirecTV">DirecTV</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Otro">Otro</option>
+                </select>
             </div>
             <div class="form-group">
                 <label for="operator-bot-message">Mensaje automático inicial (opcional):</label>
@@ -1361,6 +1398,17 @@
             </div>
 
             <!-- Parámetros Anti-ban Base -->
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="cfg-category">Clase / Producto de la cuenta:</label>
+                <select id="cfg-category" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-hairline); background: var(--bg-card); color: var(--text-primary); font-size: 13px;">
+                    <option value="Movistar">Movistar</option>
+                    <option value="Claro">Claro</option>
+                    <option value="DirecTV">DirecTV</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="cfg-daily-limit">Límite Diario Base:</label>
@@ -1445,8 +1493,8 @@
     <script src="js/lucide.min.js?v=20260918_v1"></script>
     <script src="js/icons-helper.js?v=20260918_v1"></script>
     <script src="js/dialog.js?v=20260918_v1"></script>
-    <script src="js/app.js?v=20260918_v7"></script>
-    <script src="js/operator-view.js?v=20260918_v3"></script>
-    <script src="js/distribution-view.js?v=20260918_v1"></script>
+    <script src="js/app.js?v=20260918_v8"></script>
+    <script src="js/operator-view.js?v=20260918_v4"></script>
+    <script src="js/distribution-view.js?v=20260918_v2"></script>
 </body>
 </html>

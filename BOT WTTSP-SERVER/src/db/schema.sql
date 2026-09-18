@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     assigned_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     name VARCHAR(100) NOT NULL,
     phone_number VARCHAR(30) DEFAULT '',
+    category VARCHAR(50) NOT NULL DEFAULT 'Movistar',
     status VARCHAR(20) DEFAULT 'disconnected',
     is_active_bot BOOLEAN DEFAULT FALSE,
     message TEXT DEFAULT '',
