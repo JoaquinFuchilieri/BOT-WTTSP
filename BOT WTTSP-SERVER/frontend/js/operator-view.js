@@ -508,15 +508,30 @@ async function saveModalBotMessage() {
  * Edit descriptive name
  */
 async function editBotName(profileId, currentName) {
-    const newName = prompt('Ingresa el nuevo nombre para este WhatsApp:', currentName);
-    if (!newName || !newName.trim() || newName.trim() === currentName) return;
+    const newName = await window.showPrompt({
+        title: 'Cambiar Nombre de Cuenta',
+        message: 'Ingresa el nuevo nombre identificador para esta cuenta de WhatsApp:',
+        defaultValue: currentName || '',
+        placeholder: 'Ej: WhatsApp Ventas 01',
+        confirmText: 'Guardar Nombre',
+        cancelText: 'Cancelar',
+        type: 'edit'
+    });
+
+    if (newName === null) return;
+    const trimmed = newName.trim();
+    if (!trimmed) {
+        toast('El nombre no puede estar vacío', 'warning');
+        return;
+    }
+    if (trimmed === currentName) return;
 
     try {
         await api(`/profiles/${profileId}/config`, {
             method: 'PATCH',
-            body: JSON.stringify({ name: newName.trim() })
+            body: JSON.stringify({ name: trimmed })
         });
-        toast('Nombre actualizado', 'success');
+        toast('Nombre actualizado exitosamente', 'success');
         await loadOperatorBots();
     } catch (err) {
         toast(`Error al renombrar: ${err.message}`, 'error');
