@@ -97,4 +97,12 @@ server.listen(PORT, async () => {
   } catch (err) {
     console.error('[BotEngine] Error auto-starting bots on startup:', err);
   }
+
+  // Initialize company work schedule automated manager
+  try {
+    const scheduleManager = require('./services/schedule-manager');
+    scheduleManager.initScheduleManager(30000);
+  } catch (err) {
+    console.error('[ScheduleManager] Error initializing schedule manager:', err);
+  }
 });

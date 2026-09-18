@@ -27,28 +27,60 @@ function sleep(ms) {
 }
 
 /**
- * Check if current time is within profile's work schedule
+ * Check if current time is within work schedule for a profile and its company.
+ * Priority: If company has work_schedule_enabled, it strictly overrides and enforces on all company bots.
+ * Otherwise falls back to profile-level schedule if configured.
  */
-function isWithinWorkSchedule(profile) {
-  if (!profile.work_schedule_enabled) return true;
+function isWithinWorkSchedule(profile, company) {
+  const schedEnabled = company && company.work_schedule_enabled !== undefined 
+    ? company.work_schedule_enabled 
+    : profile?.work_schedule_enabled;
+
+  if (!schedEnabled) return { allowed: true };
+
+  const startStr = (company?.work_schedule_start || profile?.work_schedule_start || '09:00').trim();
+  const endStr = (company?.work_schedule_end || profile?.work_schedule_end || '20:00').trim();
+  const daysStr = (company?.work_schedule_days || profile?.work_schedule_days || '1,2,3,4,5').trim();
 
   const now = new Date();
-  // In JS: 0 = Sun, 1 = Mon, ..., 6 = Sat
-  const day = now.getDay();
-  const allowedDays = (profile.work_schedule_days || '1,2,3,4,5').split(',').map(d => parseInt(d.trim(), 10));
+  const day = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const allowedDays = daysStr.split(',').map(d => parseInt(d.trim(), 10));
 
   if (!allowedDays.includes(day)) {
-    return false;
+    return {
+      allowed: false,
+      reason: `Hoy no es un día laboral permitido según la configuración de la empresa (${startStr} a ${endStr}).`,
+      startStr,
+      endStr
+    };
   }
 
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const [startH, startM] = (profile.work_schedule_start || '09:00').split(':').map(Number);
-  const [endH, endM] = (profile.work_schedule_end || '18:00').split(':').map(Number);
+  const [startH, startM] = startStr.split(':').map(Number);
+  const [endH, endM] = endStr.split(':').map(Number);
 
   const startTotal = startH * 60 + startM;
   const endTotal = endH * 60 + endM;
 
-  return currentMinutes >= startTotal && currentMinutes <= endTotal;
+  let inside = false;
+  if (startTotal <= endTotal) {
+    // Normal daytime schedule (e.g. 09:00 to 20:00)
+    inside = currentMinutes >= startTotal && currentMinutes < endTotal;
+  } else {
+    // Overnight schedule (e.g. 22:00 to 06:00)
+    inside = currentMinutes >= startTotal || currentMinutes < endTotal;
+  }
+
+  if (!inside) {
+    return {
+      allowed: false,
+      reason: `Fuera del horario laboral permitido (${startStr} a ${endStr}).`,
+      startStr,
+      endStr
+    };
+  }
+
+  return { allowed: true, startStr, endStr };
 }
 
 /**
@@ -65,13 +97,30 @@ async function runBotLoop(profileId) {
 
   while (botState.isRunning) {
     try {
-      // 1. Fetch fresh profile data
-      const pRes = await db.query("SELECT * FROM profiles WHERE id = $1", [profileId]);
+      // 1. Fetch fresh profile data with company work schedule
+      const pRes = await db.query(`
+        SELECT p.*, 
+               c.work_schedule_enabled as comp_work_schedule_enabled,
+               c.work_schedule_start as comp_work_schedule_start,
+               c.work_schedule_end as comp_work_schedule_end,
+               c.work_schedule_days as comp_work_schedule_days,
+               c.name as comp_name
+        FROM profiles p
+        JOIN companies c ON p.company_id = c.id
+        WHERE p.id = $1
+      `, [profileId]);
       if (pRes.rows.length === 0) {
         console.warn(`[BotEngine] Profile ${profileId} deleted, stopping worker.`);
         break;
       }
       const profile = pRes.rows[0];
+      const company = {
+        work_schedule_enabled: profile.comp_work_schedule_enabled,
+        work_schedule_start: profile.comp_work_schedule_start,
+        work_schedule_end: profile.comp_work_schedule_end,
+        work_schedule_days: profile.comp_work_schedule_days,
+        name: profile.comp_name
+      };
 
       // Check if manually disabled
       if (!profile.is_active_bot) {
@@ -86,7 +135,23 @@ async function runBotLoop(profileId) {
         continue;
       }
 
-      // 2. Daily counter reset check
+      // 2. Work schedule check (Company schedule takes strict priority)
+      const schedCheck = isWithinWorkSchedule(profile, company);
+      if (!schedCheck.allowed) {
+        console.log(`[BotEngine] Profile ${profileId} is outside work schedule (${schedCheck.reason}). Auto-stopping bot.`);
+        botState.status = 'outside_work_schedule';
+        botState.nextAction = schedCheck.reason;
+        emitProgress(profileId, {
+          status: 'outside_work_schedule',
+          sentToday: profile.sent_today || 0,
+          nextAction: schedCheck.reason
+        });
+        // Auto-stop bot completely to prevent random running
+        await stopBot(profileId, schedCheck.reason);
+        break;
+      }
+
+      // 3. Daily counter reset check
       const today = new Date().toISOString().split('T')[0];
       const lastDate = profile.last_sent_date ? new Date(profile.last_sent_date).toISOString().split('T')[0] : '';
       let sentToday = profile.sent_today || 0;
@@ -96,7 +161,7 @@ async function runBotLoop(profileId) {
         sentToday = 0;
       }
 
-      // 3. Daily limit check (with warmup support)
+      // 4. Daily limit check (with warmup support)
       let effectiveLimit = profile.daily_limit || 200;
       if (profile.warmup_enabled) {
         const warmupLimit = (profile.warmup_day || 1) * (profile.warmup_daily_increment || 15);
@@ -111,17 +176,6 @@ async function runBotLoop(profileId) {
           nextAction: 'Límite diario alcanzado. Reanudará mañana.'
         });
         await sleep(60000); // Wait 1 min before checking date again
-        continue;
-      }
-
-      // 4. Work schedule check
-      if (!isWithinWorkSchedule(profile)) {
-        emitProgress(profileId, {
-          status: 'outside_work_schedule',
-          sentToday,
-          nextAction: `Fuera del horario laboral (${profile.work_schedule_start} - ${profile.work_schedule_end}).`
-        });
-        await sleep(30000);
         continue;
       }
 
@@ -314,6 +368,38 @@ async function startBot(profileId) {
     throw new Error('No se puede encender el bot: la cuenta de WhatsApp no está conectada. Escanea el código QR primero.');
   }
 
+  // Fetch profile and company data to check work schedule
+  const pRes = await db.query(`
+    SELECT p.*, 
+           c.work_schedule_enabled as comp_work_schedule_enabled,
+           c.work_schedule_start as comp_work_schedule_start,
+           c.work_schedule_end as comp_work_schedule_end,
+           c.work_schedule_days as comp_work_schedule_days,
+           c.name as comp_name
+    FROM profiles p
+    JOIN companies c ON p.company_id = c.id
+    WHERE p.id = $1
+  `, [profileId]);
+
+  if (pRes.rows.length === 0) {
+    throw new Error('Perfil no encontrado');
+  }
+
+  const profile = pRes.rows[0];
+  const company = {
+    work_schedule_enabled: profile.comp_work_schedule_enabled,
+    work_schedule_start: profile.comp_work_schedule_start,
+    work_schedule_end: profile.comp_work_schedule_end,
+    work_schedule_days: profile.comp_work_schedule_days,
+    name: profile.comp_name
+  };
+
+  // Check schedule
+  const schedCheck = isWithinWorkSchedule(profile, company);
+  if (!schedCheck.allowed) {
+    throw new Error(`No se puede encender el bot: ${schedCheck.reason}`);
+  }
+
   let botState = runningBots.get(profileId);
   if (botState && botState.isRunning) {
     return { success: true, message: 'El bot ya está en ejecución' };
@@ -336,18 +422,19 @@ async function startBot(profileId) {
 /**
  * Stop bot sending for a profile
  */
-async function stopBot(profileId) {
+async function stopBot(profileId, reason = 'Bot apagado.') {
   const botState = runningBots.get(profileId);
   if (botState) {
     botState.isRunning = false;
     botState.status = 'stopped';
     botState.nextSendAt = null;
+    botState.nextAction = reason;
   }
   runningBots.delete(profileId);
 
   await db.query("UPDATE profiles SET is_active_bot = FALSE WHERE id = $1", [profileId]);
 
-  emitProgress(profileId, { status: 'stopped', nextAction: 'Bot apagado.', countdown: 0, nextSendAt: null });
+  emitProgress(profileId, { status: 'stopped', nextAction: reason, countdown: 0, nextSendAt: null });
   return { success: true };
 }
 
@@ -398,5 +485,6 @@ module.exports = {
   autoStartBots,
   onProgress,
   getBotState,
+  isWithinWorkSchedule,
   runningBots
 };

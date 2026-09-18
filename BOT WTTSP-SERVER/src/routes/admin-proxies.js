@@ -14,10 +14,10 @@ function requireAdminOrSuperAdmin(req, res, next) {
 }
 
 function resolveCompanyId(req) {
-  if (req.user.role === 'superadmin') {
-    return req.query.companyId || req.body.companyId || null;
+  if (req.user && req.user.role === 'superadmin') {
+    return req.query?.companyId || req.body?.companyId || null;
   }
-  return req.user.companyId;
+  return req.user?.companyId || null;
 }
 
 router.use(authenticateToken);

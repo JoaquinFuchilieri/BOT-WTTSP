@@ -976,13 +976,50 @@
                 <input type="number" id="antiban-daily-limit" min="1" value="200">
             </div>
 
+            <!-- ================= HORARIO LABORAL POR EMPRESA (EXCLUSIVO SUPERADMIN) ================= -->
+            <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.22); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="clock" style="width: 17px; height: 17px; color: #38bdf8;"></i>
+                        <strong style="font-size: 13.5px; color: var(--text-primary);">Horario Laboral Obligatorio</strong>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; font-size: 12.5px; color: #38bdf8; font-weight: 600;">
+                        <input type="checkbox" id="antiban-schedule-enabled" style="width: 17px; height: 17px; cursor: pointer;">
+                        Activar Restricción
+                    </label>
+                </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
+                    Define el rango horario permitido para el funcionamiento de los WhatsApps de esta empresa. Los bots se <strong>encenderán y apagarán automáticamente</strong> en este rango y los operarios <strong>no tendrán permiso para encenderlos fuera de este horario</strong>.
+                </p>
+
+                <div id="antiban-schedule-inputs" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="antiban-schedule-start" style="font-size: 12px; color: var(--text-secondary);">Hora de Inicio (Encendido Auto):</label>
+                        <input type="time" id="antiban-schedule-start" value="09:00" style="font-weight: 600;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="antiban-schedule-end" style="font-size: 12px; color: var(--text-secondary);">Hora de Cierre (Apagado Auto):</label>
+                        <input type="time" id="antiban-schedule-end" value="20:00" style="font-weight: 600;">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="antiban-schedule-days" style="font-size: 12px; color: var(--text-secondary);">Días Laborales Habilitados:</label>
+                    <select id="antiban-schedule-days" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-hairline); background: var(--bg-card); color: var(--text-primary); font-size: 12.5px;">
+                        <option value="1,2,3,4,5">Lunes a Viernes</option>
+                        <option value="1,2,3,4,5,6">Lunes a Sábados</option>
+                        <option value="0,1,2,3,4,5,6">Todos los Días (Lunes a Domingo)</option>
+                    </select>
+                </div>
+            </div>
+
             <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-hairline); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px;">
                 <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
                     <input type="checkbox" id="antiban-apply-existing" style="width: 18px; height: 18px; margin-top: 2px; cursor: pointer;">
                     <div>
                         <strong style="font-size: 13px; color: var(--text-primary);">Aplicar a todas las cuentas de WhatsApp existentes</strong>
                         <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
-                            Si está marcado, actualizará de inmediato el cooldown y límites en todos los bots ya creados en esta empresa. Si no, solo aplicará a los nuevos que se creen a partir de ahora.
+                            Si está marcado, actualizará de inmediato el cooldown, límites y horario en todos los bots ya creados en esta empresa. Si no, solo aplicará a los nuevos que se creen a partir de ahora.
                         </p>
                     </div>
                 </label>
@@ -1564,8 +1601,8 @@
     <script src="js/lucide.min.js?v=20260918_v1"></script>
     <script src="js/icons-helper.js?v=20260918_v1"></script>
     <script src="js/dialog.js?v=20260918_v1"></script>
-    <script src="js/app.js?v=20260918_v11"></script>
-    <script src="js/operator-view.js?v=20260918_v6"></script>
+    <script src="js/app.js?v=20260918_v12"></script>
+    <script src="js/operator-view.js?v=20260918_v7"></script>
     <script src="js/distribution-view.js?v=20260918_v3"></script>
 </body>
 </html>

@@ -812,6 +812,10 @@ async function openCompanyAntibanModal(companyId, companyName) {
         document.getElementById('antiban-pause-min').value = data.batch_pause_min !== undefined ? data.batch_pause_min : 25;
         document.getElementById('antiban-pause-max').value = data.batch_pause_max !== undefined ? data.batch_pause_max : 30;
         document.getElementById('antiban-daily-limit').value = data.daily_limit !== undefined ? data.daily_limit : 200;
+        document.getElementById('antiban-schedule-enabled').checked = Boolean(data.work_schedule_enabled);
+        document.getElementById('antiban-schedule-start').value = data.work_schedule_start || '09:00';
+        document.getElementById('antiban-schedule-end').value = data.work_schedule_end || '20:00';
+        document.getElementById('antiban-schedule-days').value = data.work_schedule_days || '1,2,3,4,5';
         document.getElementById('antiban-apply-existing').checked = false;
         showModal('modal-company-antiban');
     } catch (err) {
@@ -828,6 +832,10 @@ async function handleSaveCompanyAntiban() {
     const batch_pause_min = document.getElementById('antiban-pause-min').value;
     const batch_pause_max = document.getElementById('antiban-pause-max').value;
     const daily_limit = document.getElementById('antiban-daily-limit').value;
+    const work_schedule_enabled = document.getElementById('antiban-schedule-enabled').checked;
+    const work_schedule_start = document.getElementById('antiban-schedule-start').value || '09:00';
+    const work_schedule_end = document.getElementById('antiban-schedule-end').value || '20:00';
+    const work_schedule_days = document.getElementById('antiban-schedule-days').value || '1,2,3,4,5';
     const applyToProfiles = document.getElementById('antiban-apply-existing').checked;
     const errEl = document.getElementById('antiban-modal-error');
 
@@ -869,6 +877,10 @@ async function handleSaveCompanyAntiban() {
                 batch_pause_min: bpMin,
                 batch_pause_max: bpMax,
                 daily_limit: parseInt(daily_limit, 10),
+                work_schedule_enabled,
+                work_schedule_start,
+                work_schedule_end,
+                work_schedule_days,
                 applyToProfiles
             })
         });

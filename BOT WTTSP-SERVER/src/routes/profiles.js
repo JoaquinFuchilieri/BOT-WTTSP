@@ -17,10 +17,15 @@ router.get('/', async (req, res) => {
 
     let query = `
       SELECT p.*, u.email as assigned_user_email,
+             c.work_schedule_enabled as comp_work_schedule_enabled,
+             c.work_schedule_start as comp_work_schedule_start,
+             c.work_schedule_end as comp_work_schedule_end,
+             c.work_schedule_days as comp_work_schedule_days,
              (SELECT COUNT(*) FROM phone_queue q WHERE q.profile_id = p.id AND q.status = 'pending') as pending_count,
              (SELECT COUNT(*) FROM phone_queue q WHERE q.profile_id = p.id AND q.status = 'error') as error_count
       FROM profiles p
       LEFT JOIN users u ON p.assigned_user_id = u.id
+      JOIN companies c ON p.company_id = c.id
       WHERE p.company_id = $1
     `;
     const values = [companyId];
@@ -42,12 +47,32 @@ router.get('/', async (req, res) => {
     const rows = result.rows.map(p => {
       const liveSession = baileysManager.getSession(p.id);
       const botState = botEngine.getBotState(p.id);
+      const company = {
+        work_schedule_enabled: p.comp_work_schedule_enabled,
+        work_schedule_start: p.comp_work_schedule_start,
+        work_schedule_end: p.comp_work_schedule_end,
+        work_schedule_days: p.comp_work_schedule_days
+      };
+      const schedCheck = botEngine.isWithinWorkSchedule(p, company);
+
       return {
         ...p,
         live_status: liveSession.status || p.status,
         qr: liveSession.qr || null,
         phone_number: liveSession.phoneNumber || p.phone_number || '',
-        bot_state: botState
+        bot_state: {
+          ...botState,
+          is_outside_schedule: !schedCheck.allowed,
+          schedule_reason: schedCheck.reason || null
+        },
+        work_schedule: {
+          enabled: p.comp_work_schedule_enabled,
+          start: p.comp_work_schedule_start,
+          end: p.comp_work_schedule_end,
+          days: p.comp_work_schedule_days,
+          is_inside: schedCheck.allowed,
+          reason: schedCheck.reason || null
+        }
       };
     });
 

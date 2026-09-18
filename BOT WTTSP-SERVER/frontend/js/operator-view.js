@@ -122,6 +122,8 @@ function renderOperatorBots(bots) {
             : '<span style="font-size:11.5px; color:var(--text-tertiary);">Sin número vinculado</span>';
 
         const isBotOn = Boolean(bot.is_active_bot);
+        const isOutsideSchedule = Boolean(bot.bot_state && bot.bot_state.is_outside_schedule);
+        const schedReason = (bot.bot_state && bot.bot_state.schedule_reason) || 'Fuera de horario laboral';
 
         // Connection Action Buttons
         let connectionButtonsHtml = '';
@@ -217,15 +219,15 @@ function renderOperatorBots(bots) {
 
                 <!-- Bot Sending Status / Details -->
                 <div id="bot-status-text-${bot.id}" style="font-size:12px; color:var(--text-secondary); min-height:18px; margin-bottom:8px; font-style:italic;">
-                    ${isBotOn ? 'Bot activo. Procesando colas...' : 'Bot en pausa.'}
+                    ${isBotOn ? 'Bot activo. Procesando colas...' : (isOutsideSchedule ? `<span style="color: #f87171; font-weight: 600;"><i data-lucide="clock" style="width:12px;height:12px;display:inline;vertical-align:middle;"></i> ${escapeHtml(schedReason)}</span>` : 'Bot en pausa.')}
                 </div>
             </div>
 
             <div>
                 <!-- Bot Toggle Button -->
-                <button id="bot-toggle-btn-${bot.id}" class="bot-toggle-btn ${isBotOn ? 'bot-toggle-on' : (isConnected ? 'bot-toggle-off' : 'bot-toggle-disabled')}" onclick="toggleBotState('${bot.id}')" ${!isConnected && !isBotOn ? 'style="opacity: 0.55; cursor: not-allowed;" title="Primero debes conectar WhatsApp con el código QR"' : ''}>
-                    <i data-lucide="${isBotOn ? 'pause-circle' : (isConnected ? 'play-circle' : 'alert-circle')}" style="width:18px; height:18px;"></i>
-                    <span>${isBotOn ? 'Bot Encendido (Pausar)' : (isConnected ? 'Encender Bot' : 'Conectar WhatsApp para Encender')}</span>
+                <button id="bot-toggle-btn-${bot.id}" class="bot-toggle-btn ${isBotOn ? 'bot-toggle-on' : (isOutsideSchedule ? 'bot-toggle-disabled' : (isConnected ? 'bot-toggle-off' : 'bot-toggle-disabled'))}" onclick="toggleBotState('${bot.id}')" ${(!isConnected && !isBotOn) || (!isBotOn && isOutsideSchedule) ? `style="opacity: 0.55; cursor: not-allowed;" title="${isOutsideSchedule ? escapeHtml(schedReason) : 'Primero debes conectar WhatsApp con el código QR'}"` : ''}>
+                    <i data-lucide="${isBotOn ? 'pause-circle' : (isOutsideSchedule ? 'clock' : (isConnected ? 'play-circle' : 'alert-circle'))}" style="width:18px; height:18px;"></i>
+                    <span>${isBotOn ? 'Bot Encendido (Pausar)' : (isOutsideSchedule ? 'Horario Laboral Cerrado' : (isConnected ? 'Encender Bot' : 'Conectar WhatsApp para Encender'))}</span>
                 </button>
 
                 <!-- Connection Actions -->
@@ -489,6 +491,12 @@ async function toggleBotState(profileId) {
 
     if (!bot.is_active_bot && !isConnected) {
         toast('No puedes encender el bot: primero debes conectar y vincular WhatsApp con el código QR', 'error');
+        return;
+    }
+
+    if (!bot.is_active_bot && bot.bot_state && bot.bot_state.is_outside_schedule) {
+        const reason = bot.bot_state.schedule_reason || 'El horario laboral establecido por el administrador para esta empresa no permite encender los bots en este momento.';
+        toast(`Acceso bloqueado: ${reason}`, 'warning');
         return;
     }
 

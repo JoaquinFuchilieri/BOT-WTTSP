@@ -243,7 +243,9 @@ router.get('/:id/antiban', requireRole('superadmin'), async (req, res) => {
   const { id } = req.params;
   try {
     const compRes = await db.query(
-      `SELECT id, name, delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit FROM companies WHERE id = $1`,
+      `SELECT id, name, delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit,
+              work_schedule_enabled, work_schedule_start, work_schedule_end, work_schedule_days
+       FROM companies WHERE id = $1`,
       [id]
     );
     if (compRes.rows.length === 0) {
@@ -266,6 +268,10 @@ router.put('/:id/antiban', requireRole('superadmin'), async (req, res) => {
     batch_pause_min = 25,
     batch_pause_max = 30,
     daily_limit = 200,
+    work_schedule_enabled = false,
+    work_schedule_start = '09:00',
+    work_schedule_end = '20:00',
+    work_schedule_days = '1,2,3,4,5',
     applyToProfiles = false
   } = req.body;
 
@@ -290,6 +296,17 @@ router.put('/:id/antiban', requireRole('superadmin'), async (req, res) => {
       return res.status(400).json({ error: 'Límite diario inválido' });
     }
 
+    // Validate work schedule
+    const schedEnabled = Boolean(work_schedule_enabled);
+    let schedStart = (work_schedule_start || '09:00').trim();
+    let schedEnd = (work_schedule_end || '20:00').trim();
+    let schedDays = (work_schedule_days || '1,2,3,4,5').trim();
+
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!timeRegex.test(schedStart) || !timeRegex.test(schedEnd)) {
+      return res.status(400).json({ error: 'El formato de hora de inicio y fin debe ser HH:MM (ej: 09:00 o 20:00)' });
+    }
+
     const compRes = await db.query(
       `UPDATE companies SET 
         delay_min = $1, 
@@ -297,9 +314,14 @@ router.put('/:id/antiban', requireRole('superadmin'), async (req, res) => {
         batch_size = $3, 
         batch_pause_min = $4, 
         batch_pause_max = $5, 
-        daily_limit = $6 
-       WHERE id = $7 RETURNING id, name, delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit`,
-      [dMin, dMax, bSize, bpMin, bpMax, dLimit, id]
+        daily_limit = $6,
+        work_schedule_enabled = $7,
+        work_schedule_start = $8,
+        work_schedule_end = $9,
+        work_schedule_days = $10
+       WHERE id = $11 RETURNING id, name, delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit,
+                               work_schedule_enabled, work_schedule_start, work_schedule_end, work_schedule_days`,
+      [dMin, dMax, bSize, bpMin, bpMax, dLimit, schedEnabled, schedStart, schedEnd, schedDays, id]
     );
 
     if (compRes.rows.length === 0) {
@@ -315,9 +337,13 @@ router.put('/:id/antiban', requireRole('superadmin'), async (req, res) => {
           batch_size = $3, 
           batch_pause_min = $4, 
           batch_pause_max = $5, 
-          daily_limit = $6 
-         WHERE company_id = $7 RETURNING id`,
-        [dMin, dMax, bSize, bpMin, bpMax, dLimit, id]
+          daily_limit = $6,
+          work_schedule_enabled = $7,
+          work_schedule_start = $8,
+          work_schedule_end = $9,
+          work_schedule_days = $10
+         WHERE company_id = $11 RETURNING id`,
+        [dMin, dMax, bSize, bpMin, bpMax, dLimit, schedEnabled, schedStart, schedEnd, schedDays, id]
       );
       updatedProfilesCount = profRes.rows.length;
     }
@@ -331,6 +357,10 @@ router.put('/:id/antiban', requireRole('superadmin'), async (req, res) => {
       batch_pause_min: bpMin,
       batch_pause_max: bpMax,
       daily_limit: dLimit,
+      work_schedule_enabled: schedEnabled,
+      work_schedule_start: schedStart,
+      work_schedule_end: schedEnd,
+      work_schedule_days: schedDays,
       applyToProfiles,
       updatedProfilesCount
     });
@@ -338,7 +368,7 @@ router.put('/:id/antiban', requireRole('superadmin'), async (req, res) => {
     res.json({
       message: applyToProfiles 
         ? `Configuración guardada y aplicada a ${updatedProfilesCount} WhatsApps de la empresa`
-        : 'Configuración guardada para nuevos WhatsApps',
+        : 'Configuración guardada para la empresa',
       company: compRes.rows[0],
       updatedProfilesCount
     });

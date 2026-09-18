@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS companies (
     batch_pause_min INTEGER DEFAULT 25,
     batch_pause_max INTEGER DEFAULT 30,
     daily_limit INTEGER DEFAULT 200,
+    work_schedule_enabled BOOLEAN DEFAULT FALSE,
+    work_schedule_start VARCHAR(10) DEFAULT '09:00',
+    work_schedule_end VARCHAR(10) DEFAULT '20:00',
+    work_schedule_days VARCHAR(50) DEFAULT '1,2,3,4,5',
     status VARCHAR(20) DEFAULT 'active', -- active, suspended
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
