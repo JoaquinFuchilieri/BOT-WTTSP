@@ -11,7 +11,7 @@ async function authorizeProfileAccess(req, res, next) {
   if (!profileId) return next();
 
   try {
-    const profRes = await db.query('SELECT company_id, assigned_user_id FROM profiles WHERE id = $1', [profileId]);
+    const profRes = await db.query('SELECT company_id, assigned_user_id, status FROM profiles WHERE id = $1', [profileId]);
     if (profRes.rows.length === 0) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
@@ -58,6 +58,13 @@ function cleanPhoneNumber(num) {
 router.post('/import', async (req, res) => {
   const { id: profileId } = req.params;
   const { numbers } = req.body;
+
+  if (req.profile && req.profile.status !== 'connected') {
+    return res.status(400).json({
+      error: 'Esta cuenta de WhatsApp está desconectada. Debes vincularla y conectarla mediante código QR primero para poder cargarle números a la cola.',
+      code: 'BOT_DISCONNECTED'
+    });
+  }
 
   if (!Array.isArray(numbers) || numbers.length === 0) {
     return res.status(400).json({ error: 'numbers array is required' });

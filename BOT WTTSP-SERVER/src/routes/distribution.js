@@ -59,12 +59,12 @@ router.post('/preview', async (req, res) => {
     const cleanList = rawList.filter(num => !blacklistedSet.has(num));
     const blacklistedCount = rawList.length - cleanList.length;
 
-    // Get profiles for this company belonging to the selected category/class
+    // Get profiles for this company belonging to the selected category/class AND currently connected
     let profQuery = `
       SELECT p.id, p.name, p.status, p.is_active_bot, p.category, u.email as operator_email
       FROM profiles p
       LEFT JOIN users u ON p.assigned_user_id = u.id
-      WHERE p.company_id = $1 AND LOWER(p.category) = LOWER($2)
+      WHERE p.company_id = $1 AND LOWER(p.category) = LOWER($2) AND p.status = 'connected'
     `;
     const profValues = [companyId, cleanCategory];
 
@@ -78,11 +78,28 @@ router.post('/preview', async (req, res) => {
     const profRes = await db.query(profQuery, profValues);
 
     if (profRes.rows.length === 0) {
-      const scope = req.user.role === 'user' ? 'en tus cuentas de WhatsApp asignadas' : 'en la empresa';
-      return res.status(400).json({
-        error: `No hay bots configurados en la clase "${cleanCategory}" ${scope}. Creá o asigná al menos un bot con esta clase para distribuir los números.`,
-        code: 'NO_BOTS_IN_CATEGORY'
-      });
+      // Check if there are disconnected bots in this category
+      let anyQuery = `SELECT COUNT(*) FROM profiles WHERE company_id = $1 AND LOWER(category) = LOWER($2)`;
+      const anyParams = [companyId, cleanCategory];
+      if (req.user.role === 'user') {
+        anyQuery += ` AND assigned_user_id = $3`;
+        anyParams.push(req.user.id);
+      }
+      const anyRes = await db.query(anyQuery, anyParams);
+      const totalInCat = parseInt(anyRes.rows[0]?.count || 0, 10);
+
+      const scope = req.user.role === 'user' ? 'en tus cuentas' : 'en la empresa';
+      if (totalInCat > 0) {
+        return res.status(400).json({
+          error: `Hay ${totalInCat} cuenta(s) en la clase "${cleanCategory}" ${scope}, pero están DESCONECTADAS. El reparto solo se realiza a cuentas de WhatsApp CONECTADAS. Vinculá o conectá tus cuentas mediante código QR para continuar.`,
+          code: 'ALL_BOTS_DISCONNECTED'
+        });
+      } else {
+        return res.status(400).json({
+          error: `No hay bots configurados en la clase "${cleanCategory}" ${scope}. Creá al menos un bot con esta clase y conéctalo para distribuir los números.`,
+          code: 'NO_BOTS_IN_CATEGORY'
+        });
+      }
     }
 
     const candidateBots = profRes.rows;
@@ -152,8 +169,8 @@ router.post('/execute', async (req, res) => {
       return res.status(400).json({ error: 'Todos los números ingresados se encuentran en la lista negra' });
     }
 
-    // Fetch target profiles for this category
-    let profilesQuery = `SELECT id, name, category FROM profiles WHERE company_id = $1 AND LOWER(category) = LOWER($2)`;
+    // Fetch target profiles for this category that are connected
+    let profilesQuery = `SELECT id, name, category, status FROM profiles WHERE company_id = $1 AND LOWER(category) = LOWER($2) AND status = 'connected'`;
     const qParams = [companyId, cleanCategory];
 
     if (req.user.role === 'user') {
@@ -168,7 +185,10 @@ router.post('/execute', async (req, res) => {
 
     const profRes = await db.query(profilesQuery, qParams);
     if (profRes.rows.length === 0) {
-      return res.status(400).json({ error: `No se encontraron bots en la clase "${cleanCategory}" para repartir los números` });
+      return res.status(400).json({
+        error: `No se encontraron bots CONECTADOS en la clase "${cleanCategory}" para repartir los números. Conectá el WhatsApp mediante código QR para continuar.`,
+        code: 'NO_CONNECTED_BOTS'
+      });
     }
 
     const bots = profRes.rows;

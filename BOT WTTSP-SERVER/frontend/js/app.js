@@ -1099,7 +1099,7 @@ async function loadNestedOperatorProfiles() {
                 <td>${p.sent_today || 0}</td>
                 <td>${p.daily_limit || 200}</td>
                 <td>
-                    <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" onclick="openBotQueueModal('${p.id}', '${p.name.replace(/'/g, "\\'")}')">
+                    <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px; ${!isConnected ? 'opacity: 0.55; cursor: not-allowed;' : ''}" title="${isConnected ? 'Cargar números a este bot' : 'Primero debe conectarse para poder cargarle números'}" onclick="${isConnected ? `openBotQueueModal('${p.id}', '${p.name.replace(/'/g, "\\'")}')` : `toast('No se pueden cargar números a una cuenta desconectada. Primero debe vincularse por QR.', 'warning')`}">
                         ${getLucideSvg('upload', 12)} Cargar Números
                     </button>
                     ${currentUser && currentUser.role === 'superadmin' ? `

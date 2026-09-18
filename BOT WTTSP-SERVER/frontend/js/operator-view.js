@@ -101,9 +101,9 @@ function renderOperatorBots(bots) {
             <div>
                 <div class="bot-card-header">
                     <div style="flex:1; min-width:0;">
-                        <div class="bot-card-title">
-                            <span id="bot-name-${bot.id}">${escapeHtml(bot.name)}</span>
-                            <button onclick="editBotName('${bot.id}', '${escapeHtml(bot.name)}')" title="Cambiar nombre" style="background:none; border:none; color:var(--text-tertiary); cursor:pointer; padding:2px;">
+                        <div class="bot-card-title" style="display: flex; align-items: center; gap: 4px; max-width: 100%;">
+                            <span id="bot-name-${bot.id}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; max-width: 135px;" title="${escapeHtml(bot.name)}">${escapeHtml(bot.name)}</span>
+                            <button onclick="editBotName('${bot.id}', '${escapeHtml(bot.name)}')" title="Cambiar nombre" style="background:none; border:none; color:var(--text-tertiary); cursor:pointer; padding:2px; flex-shrink: 0;">
                                 <i data-lucide="edit-3" style="width:14px; height:14px;"></i>
                             </button>
                         </div>
@@ -144,7 +144,7 @@ function renderOperatorBots(bots) {
                         <i data-lucide="message-square" style="width: 15px; height: 15px; color: var(--accent-pink);"></i>
                         <strong style="color: var(--text-primary);">Mensaje Automático</strong>
                     </button>
-                    <button class="btn-secondary" onclick="openBotQueueModal('${bot.id}', '${escapeHtml(bot.name)}')" style="width: 100%; padding: 9px 14px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(224, 77, 128, 0.07); border: 1px solid rgba(224, 77, 128, 0.3); border-radius: 10px; cursor: pointer;" title="Cargar números de teléfono para que este bot les envíe mensajes">
+                    <button class="btn-secondary" onclick="openBotQueueModal('${bot.id}', '${escapeHtml(bot.name)}')" style="width: 100%; padding: 9px 14px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(224, 77, 128, 0.07); border: 1px solid rgba(224, 77, 128, 0.3); border-radius: 10px; cursor: ${isConnected ? 'pointer' : 'not-allowed'}; ${!isConnected ? 'opacity: 0.55;' : ''}" title="${isConnected ? 'Cargar números de teléfono para que este bot les envíe mensajes' : 'Primero debes conectar este WhatsApp para poder cargarle números'}">
                         <i data-lucide="upload" style="width: 15px; height: 15px; color: var(--accent-pink);"></i>
                         <strong style="color: #fff;">Cargar Números</strong>
                     </button>
@@ -675,8 +675,14 @@ document.addEventListener('DOMContentLoaded', () => {
 let activeQueueBotId = null;
 
 async function openBotQueueModal(profileId, profileName) {
-    activeQueueBotId = profileId;
     const bot = Array.isArray(operatorBots) ? operatorBots.find(b => b.id === profileId) : null;
+    
+    // Bloquear carga si el bot no está conectado
+    if (bot && bot.status !== 'connected') {
+        return toast(`No puedes cargar números a "${escapeHtml(bot.name || 'este WhatsApp')}" porque está desconectado. Primero debes conectarlo escaneando el código QR.`, 'warning');
+    }
+
+    activeQueueBotId = profileId;
     
     const modal = document.getElementById('modal-bot-queue');
     const titleEl = document.getElementById('modal-bot-queue-title');
@@ -853,6 +859,11 @@ function handleBotQueueFileChange(e) {
 
 async function handleSaveBotQueue() {
     if (!activeQueueBotId) return;
+
+    const bot = Array.isArray(operatorBots) ? operatorBots.find(b => b.id === activeQueueBotId) : null;
+    if (bot && bot.status !== 'connected') {
+        return toast('No puedes cargar números porque este WhatsApp está desconectado. Conéctalo primero con el código QR.', 'warning');
+    }
 
     const textarea = document.getElementById('modal-bot-queue-textarea');
     const text = textarea ? textarea.value : '';
