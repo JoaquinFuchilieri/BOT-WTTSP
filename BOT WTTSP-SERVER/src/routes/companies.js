@@ -122,7 +122,7 @@ router.post('/', requireRole('superadmin'), async (req, res) => {
     // Insert company
     const companyRes = await client.query(
       'INSERT INTO companies (name, plan_id, user_limit, whatsapp_limit, max_profiles_per_operator, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name.trim(), planId || null, userLimit || 5, whatsappLimit || 10, maxProfilesPerOperator || 3, 'active']
+      [name.trim(), planId || null, userLimit || 5, whatsappLimit || 10, maxProfilesPerOperator || 2, 'active']
     );
     const company = companyRes.rows[0];
 

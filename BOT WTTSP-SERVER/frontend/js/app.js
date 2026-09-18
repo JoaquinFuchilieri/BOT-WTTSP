@@ -589,11 +589,7 @@ async function loadCompaniesDirectory() {
                             <strong>${c.user_count} / ${c.user_limit}</strong>
                         </div>
                         <div class="company-meta-row">
-                            <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('smartphone', 14)} WA por Operador (Ref):</span>
-                            <strong>${c.max_profiles_per_operator || 3} máx</strong>
-                        </div>
-                        <div class="company-meta-row">
-                            <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('bot', 14)} Cuentas WA Contratadas:</span>
+                            <span style="display: flex; align-items: center; gap: 6px;">${getLucideSvg('bot', 14)} WhatsApps Habilitados:</span>
                             <strong>${c.profile_count} / ${c.whatsapp_limit || 10}</strong>
                         </div>
                         <div class="company-meta-row">
@@ -608,7 +604,7 @@ async function loadCompaniesDirectory() {
                         ${getLucideSvg('arrow-right', 14)} Entrar a Gestionar
                     </button>
                     <div style="display: flex; gap: 8px;">
-                        <button title="Configuración de Límites" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyLimitsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.user_limit || 5}, ${c.max_profiles_per_operator || 3}, ${c.whatsapp_limit || 10})">
+                        <button title="Configuración de Límites" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyLimitsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.user_limit || 5}, ${c.whatsapp_limit || 10})">
                             ${getLucideSvg('sliders', 13)} Límites
                         </button>
                         <button class="${isSuspended ? 'btn-success' : 'btn-danger'}" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="toggleCompanyStatus('${c.id}', '${c.status}')">
@@ -630,11 +626,10 @@ async function loadCompaniesDirectory() {
     }
 }
 
-function openCompanyLimitsModal(companyId, companyName, currentLimit, currentMaxProfiles, currentWhatsappLimit) {
+function openCompanyLimitsModal(companyId, companyName, currentLimit, currentWhatsappLimit) {
     document.getElementById('limits-company-id').value = companyId;
     document.getElementById('limits-company-name').textContent = `Empresa: ${companyName}`;
     document.getElementById('limits-user-limit').value = currentLimit;
-    document.getElementById('limits-max-profiles').value = currentMaxProfiles;
     const waInput = document.getElementById('limits-whatsapp-limit');
     if (waInput) waInput.value = currentWhatsappLimit !== undefined ? currentWhatsappLimit : 10;
     showModal('modal-company-limits');
@@ -643,19 +638,18 @@ function openCompanyLimitsModal(companyId, companyName, currentLimit, currentMax
 async function handleSaveCompanyLimits() {
     const id = document.getElementById('limits-company-id').value;
     const userLimit = document.getElementById('limits-user-limit').value;
-    const maxProfilesPerOperator = document.getElementById('limits-max-profiles').value;
     const waInput = document.getElementById('limits-whatsapp-limit');
     const whatsappLimit = waInput ? waInput.value : null;
 
-    if (!userLimit || !maxProfilesPerOperator) {
+    if (!userLimit || !whatsappLimit) {
         return toast('Completá ambos límites', 'error');
     }
 
     try {
-        const body = { userLimit, maxProfilesPerOperator };
-        if (whatsappLimit !== null && whatsappLimit !== '') {
-            body.whatsappLimit = parseInt(whatsappLimit, 10);
-        }
+        const body = { 
+            userLimit: parseInt(userLimit, 10),
+            whatsappLimit: parseInt(whatsappLimit, 10)
+        };
         await api(`/companies/${id}`, {
             method: 'PATCH',
             body: JSON.stringify(body)
@@ -734,7 +728,8 @@ async function handleCreateCompany() {
     const adminEmail = document.getElementById('new-comp-email').value.trim();
     const adminPassword = document.getElementById('new-comp-pass').value;
     const userLimit = document.getElementById('new-comp-limit').value;
-    const maxProfilesPerOperator = document.getElementById('new-comp-max-profiles').value;
+    const waInput = document.getElementById('new-comp-whatsapp-limit');
+    const whatsappLimit = waInput ? waInput.value : 10;
     const errorEl = document.getElementById('modal-comp-error');
 
     if (!name || !adminEmail || !adminPassword) return toast('Completá todos los campos obligatorios', 'error');
@@ -752,7 +747,13 @@ async function handleCreateCompany() {
     try {
         await api('/companies', {
             method: 'POST',
-            body: JSON.stringify({ name, adminEmail, adminPassword, userLimit, maxProfilesPerOperator })
+            body: JSON.stringify({ 
+                name, 
+                adminEmail, 
+                adminPassword, 
+                userLimit: parseInt(userLimit, 10) || 5, 
+                whatsappLimit: parseInt(whatsappLimit, 10) || 10 
+            })
         });
         hideModal('modal-company');
         document.getElementById('new-comp-name').value = '';

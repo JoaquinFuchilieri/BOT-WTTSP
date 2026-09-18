@@ -872,16 +872,12 @@
                 <input type="password" id="new-comp-pass" placeholder="••••••••">
             </div>
             <div class="form-group">
-                <label for="new-comp-limit">Límite de Operadores que puede crear el Admin:</label>
+                <label for="new-comp-limit">Límite de Operadores (Cuentas con acceso):</label>
                 <input type="number" id="new-comp-limit" value="5" min="1">
             </div>
             <div class="form-group">
-                <label for="new-comp-whatsapp-limit">Límite Total de Cuentas WhatsApp Contratadas:</label>
+                <label for="new-comp-whatsapp-limit">Total de Cuentas de WhatsApp Habilitadas:</label>
                 <input type="number" id="new-comp-whatsapp-limit" value="10" min="1">
-            </div>
-            <div class="form-group">
-                <label for="new-comp-max-profiles">Límite de Cuentas WhatsApp por Operador (Referencia):</label>
-                <input type="number" id="new-comp-max-profiles" value="3" min="1">
             </div>
             <p id="modal-comp-error" class="hidden" style="color: var(--accent-red); font-size: 13px; margin-bottom: 10px;"></p>
             <div class="flex gap-10" style="justify-content: flex-end; margin-top: 20px;">
@@ -894,20 +890,16 @@
     <!-- Modal: Configuración de Límites de Empresa (Engranaje ) -->
     <div id="modal-company-limits" class="modal hidden">
         <div class="modal-card">
-            <h3 style="margin-bottom: 6px;">Configuración de Límites</h3>
+            <h3 style="margin-bottom: 6px;">Configuración de Límites de Empresa</h3>
             <p id="limits-company-name" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;"></p>
             <input type="hidden" id="limits-company-id">
             <div class="form-group">
-                <label for="limits-user-limit">Cantidad máxima de Operadores que el Admin puede crear:</label>
+                <label for="limits-user-limit">Límite de Operadores (Cuentas con acceso):</label>
                 <input type="number" id="limits-user-limit" min="1">
             </div>
             <div class="form-group">
-                <label for="limits-whatsapp-limit">Cantidad Total de Cuentas WhatsApp Contratadas:</label>
+                <label for="limits-whatsapp-limit">Total de Cuentas de WhatsApp Habilitadas:</label>
                 <input type="number" id="limits-whatsapp-limit" min="1">
-            </div>
-            <div class="form-group">
-                <label for="limits-max-profiles">Límite de cuentas de WhatsApp por Operador (Referencia):</label>
-                <input type="number" id="limits-max-profiles" min="1">
             </div>
             <div class="flex gap-10" style="justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-hairline);">
                 <button id="modal-limits-delete-company" class="btn-danger" style="padding: 8px 14px; font-size: 12.5px;"><i data-lucide="trash-2"></i> Borrar Empresa</button>
@@ -1358,7 +1350,7 @@
     <script src="js/lucide.min.js?v=20260918_v1"></script>
     <script src="js/icons-helper.js?v=20260918_v1"></script>
     <script src="js/dialog.js?v=20260918_v1"></script>
-    <script src="js/app.js?v=20260918_v3"></script>
+    <script src="js/app.js?v=20260918_v4"></script>
     <script src="js/operator-view.js?v=20260918_v2"></script>
     <script src="js/distribution-view.js?v=20260918_v1"></script>
 </body>

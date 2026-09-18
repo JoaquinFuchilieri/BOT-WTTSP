@@ -84,7 +84,7 @@ router.post('/', async (req, res) => {
     // Validate operator whatsapp_limit if provided
     let effectiveLimit = whatsapp_limit !== undefined && whatsapp_limit !== null && whatsapp_limit !== ''
       ? parseInt(whatsapp_limit, 10)
-      : (max_profiles_per_operator || 2);
+      : 2;
 
     if (isNaN(effectiveLimit) || effectiveLimit < 0) {
       return res.status(400).json({ error: 'El límite de WhatsApp debe ser un número entero mayor o igual a 0.' });

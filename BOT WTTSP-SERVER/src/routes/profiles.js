@@ -79,7 +79,7 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Empresa no encontrada' });
     }
     const maxCompanyWhatsApp = compRes.rows[0].whatsapp_limit || 10;
-    const defaultPerOperator = compRes.rows[0].max_profiles_per_operator || 2;
+    const defaultPerOperator = 2;
 
     const countRes = await db.query('SELECT COUNT(*) FROM profiles WHERE company_id = $1', [compId]);
     const currentCompanyCount = parseInt(countRes.rows[0].count, 10);
@@ -224,7 +224,7 @@ router.patch('/:id/config', async (req, res) => {
         const opObj = targetOp.rows[0];
         const opLimit = opObj.whatsapp_limit !== null && opObj.whatsapp_limit !== undefined
           ? parseInt(opObj.whatsapp_limit, 10)
-          : (opObj.max_profiles_per_operator || 2);
+          : 2;
 
         const currentOpProfiles = await db.query(
           'SELECT COUNT(*) FROM profiles WHERE assigned_user_id = $1 AND id != $2',
