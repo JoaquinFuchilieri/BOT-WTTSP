@@ -169,16 +169,46 @@ router.patch('/:id', requireRole('superadmin'), async (req, res) => {
       values.push(status);
     }
     if (userLimit !== undefined) {
+      const parsedUserLimit = parseInt(userLimit, 10);
+      if (isNaN(parsedUserLimit) || parsedUserLimit < 1) {
+        return res.status(400).json({ error: 'El límite de operadores debe ser un número entero mayor a 0' });
+      }
+      const userCountRes = await db.query('SELECT COUNT(*) as count FROM users WHERE company_id = $1 AND role = \'user\'', [id]);
+      const currentUsers = parseInt(userCountRes.rows[0].count, 10);
+      if (parsedUserLimit < currentUsers) {
+        return res.status(400).json({
+          error: `No puedes reducir el límite a ${parsedUserLimit} operadores porque la empresa ya tiene ${currentUsers} operadores creados. Debes eliminar operadores primero.`
+        });
+      }
       fields.push(`user_limit = $${idx++}`);
-      values.push(parseInt(userLimit, 10));
+      values.push(parsedUserLimit);
     }
     if (whatsappLimit !== undefined) {
+      const parsedWaLimit = parseInt(whatsappLimit, 10);
+      if (isNaN(parsedWaLimit) || parsedWaLimit < 1) {
+        return res.status(400).json({ error: 'El total de WhatsApps habilitados debe ser un número entero mayor a 0' });
+      }
+
+      // Check active profiles created
+      const countRes = await db.query('SELECT COUNT(*) as count FROM profiles WHERE company_id = $1', [id]);
+      const currentCreated = parseInt(countRes.rows[0].count, 10);
+      if (parsedWaLimit < currentCreated) {
+        return res.status(400).json({
+          error: `No puedes reducir el límite de la empresa a ${parsedWaLimit} porque ya hay ${currentCreated} cuentas de WhatsApp creadas activas en la empresa. Primero deben eliminar cuentas.`
+        });
+      }
+
+      // Check allocated operator quotas
+      const allocRes = await db.query('SELECT COALESCE(SUM(whatsapp_limit), 0) as total_alloc FROM users WHERE company_id = $1', [id]);
+      const currentAlloc = parseInt(allocRes.rows[0].total_alloc, 10);
+      if (parsedWaLimit < currentAlloc) {
+        return res.status(400).json({
+          error: `No puedes reducir el límite a ${parsedWaLimit} porque los operadores tienen asignados un total de ${currentAlloc} cupos. Primero reduce los cupos asignados a los operadores.`
+        });
+      }
+
       fields.push(`whatsapp_limit = $${idx++}`);
-      values.push(parseInt(whatsappLimit, 10));
-    }
-    if (maxProfilesPerOperator !== undefined) {
-      fields.push(`max_profiles_per_operator = $${idx++}`);
-      values.push(parseInt(maxProfilesPerOperator, 10));
+      values.push(parsedWaLimit);
     }
     if (planId !== undefined) {
       fields.push(`plan_id = $${idx++}`);

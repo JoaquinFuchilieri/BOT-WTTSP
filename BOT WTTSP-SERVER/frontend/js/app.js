@@ -98,8 +98,13 @@ function setupEventListeners() {
         const assigned = targetUser ? (parseInt(targetUser.assigned_profiles, 10) || 0) : 0;
         const currentLimit = targetUser && targetUser.whatsapp_limit !== null && targetUser.whatsapp_limit !== undefined 
             ? targetUser.whatsapp_limit 
-            : (targetUser ? targetUser.company_max_profiles : 2);
-        openOperatorQuotaModal(activeNestedOperatorId, activeNestedOperatorEmail, currentLimit, assigned, targetUser ? (targetUser.company_whatsapp_limit || companyMaxWA) : companyMaxWA);
+            : 0;
+        const compMax = targetUser ? (targetUser.company_whatsapp_limit || companyMaxWA) : companyMaxWA;
+        const otherQuotas = Array.isArray(companyUsers) 
+            ? companyUsers.filter(x => x.id !== activeNestedOperatorId).reduce((s, x) => s + (parseInt(x.whatsapp_limit, 10) || 0), 0)
+            : 0;
+        const maxAvailable = Math.max(0, compMax - otherQuotas);
+        openOperatorQuotaModal(activeNestedOperatorId, activeNestedOperatorEmail, currentLimit, assigned, compMax, otherQuotas, maxAvailable);
     });
 
     // 4. Nested Profile Modal (under Operator)
@@ -841,12 +846,14 @@ async function loadUsersSection(targetRole) {
                 const adminLimit = a.whatsapp_limit !== null && a.whatsapp_limit !== undefined ? a.whatsapp_limit : (a.company_max_profiles || 2);
                 const assignedCount = parseInt(a.assigned_profiles, 10) || 0;
                 const aCompMax = a.company_whatsapp_limit || 10;
+                const otherQuotas = companyUsers.filter(x => x.id !== a.id).reduce((s, x) => s + (parseInt(x.whatsapp_limit, 10) || 0), 0);
+                const maxAvailable = Math.max(0, aCompMax - otherQuotas);
                 const quotaWidget = `
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span class="badge" style="background: rgba(224, 77, 128, 0.15); color: var(--accent-pink); border: 1px solid rgba(224, 77, 128, 0.3); font-weight: 700; font-size: 11.5px; padding: 4px 8px;">
                             ${adminLimit} WhatsApps
                         </span>
-                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 11px; border-color: rgba(224, 77, 128, 0.4); color: var(--accent-pink); display: inline-flex; align-items: center; gap: 4px;" title="Asignar cupo de cuentas a este administrador" onclick="openOperatorQuotaModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', ${adminLimit}, ${assignedCount}, ${aCompMax})">
+                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 11px; border-color: rgba(224, 77, 128, 0.4); color: var(--accent-pink); display: inline-flex; align-items: center; gap: 4px;" title="Asignar cupo de cuentas a este administrador" onclick="openOperatorQuotaModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', ${adminLimit}, ${assignedCount}, ${aCompMax}, ${otherQuotas}, ${maxAvailable})">
                             ${getLucideSvg('sliders', 12)} Asignar Cupo
                         </button>
                     </div>
@@ -864,7 +871,8 @@ async function loadUsersSection(targetRole) {
                     <td>${new Date(a.created_at).toLocaleDateString()}</td>
                     <td>
                         <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="openEditUserModal('${a.id}', '${a.email.replace(/'/g, "\\'")}', '${a.role}')">Editar Credenciales</button>
-                        <button class="${a.status === 'active' ? 'btn-danger' : 'btn-success'}" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleUserStatus('${a.id}', '${a.status}')">${a.status === 'active' ? 'Desactivar' : 'Activar'}</button>
+                        <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 3px;" title="Reiniciar configuraciones de base de este usuario" onclick="resetUserDefaults('${a.id}', '${a.email.replace(/'/g, "\\'")}')">${getLucideSvg('rotate-ccw', 12)} Reset Base</button>
+                        <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px;" onclick="toggleUserStatus('${a.id}', '${a.status}')">${a.status === 'active' ? 'Desactivar' : 'Activar'}</button>
                         <button class="btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteUser('${a.id}')">Eliminar</button>
                     </td>
                 `;
@@ -878,19 +886,31 @@ async function loadUsersSection(targetRole) {
             const tbody = document.getElementById('operators-table-body');
             tbody.innerHTML = '';
 
-            let quotaText = `Operadores registrados: ${operators.length}`;
+            let companyMaxWA = 10;
+            if (currentUser && currentUser.role === 'superadmin') {
+                const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
+                if (comp) companyMaxWA = comp.whatsapp_limit || 10;
+            } else if (currentUser) {
+                companyMaxWA = currentUser.companyWhatsappLimit || 10;
+            }
+
+            const totalAllocatedWA = companyUsers.reduce((sum, user) => sum + (parseInt(user.whatsapp_limit, 10) || 0), 0);
+            const freeQuotaWA = Math.max(0, companyMaxWA - totalAllocatedWA);
+
+            let quotaText = `Operadores: ${operators.length}`;
             if (currentUser.role === 'superadmin') {
                 const comp = companies.find(c => c.id === activeCompanyId);
                 if (comp && comp.user_limit) {
-                    quotaText = `Operadores: ${operators.length} / ${comp.user_limit} máx permitidos`;
+                    quotaText = `Operadores: ${operators.length} / ${comp.user_limit} máx`;
                 }
             } else if (currentUser.userLimit) {
-                quotaText = `Operadores: ${operators.length} / ${currentUser.userLimit} máx permitidos`;
+                quotaText = `Operadores: ${operators.length} / ${currentUser.userLimit} máx`;
             }
             if (admins.length > 0) {
-                quotaText += ` • Administradores: ${admins.length}`;
+                quotaText += ` • Admins: ${admins.length}`;
             }
-            document.getElementById('operators-quota-text').textContent = quotaText;
+            quotaText += ` • <span style="color: var(--accent-pink); font-weight: 600;">Cupos WhatsApp: ${totalAllocatedWA} / ${companyMaxWA} asignados (${freeQuotaWA} disponibles)</span>`;
+            document.getElementById('operators-quota-text').innerHTML = quotaText;
 
             // List admins first, then operators
             const displayUsers = [...admins, ...operators];
@@ -898,14 +918,6 @@ async function loadUsersSection(targetRole) {
             if (displayUsers.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-secondary); padding: 18px;">No hay usuarios ni operadores registrados en la empresa.</td></tr>';
                 return;
-            }
-
-            let companyMaxWA = 10;
-            if (currentUser && currentUser.role === 'superadmin') {
-                const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
-                if (comp) companyMaxWA = comp.whatsapp_limit || 10;
-            } else if (currentUser) {
-                companyMaxWA = currentUser.companyWhatsappLimit || 10;
             }
 
             displayUsers.forEach(u => {
@@ -918,15 +930,17 @@ async function loadUsersSection(targetRole) {
                     : `<span class="badge" style="background:rgba(255,255,255,0.08); color:var(--text-secondary); display:inline-flex; align-items:center; gap:4px;">${getLucideSvg('user', 12)} Operador</span>`;
 
                 const assignedCount = parseInt(u.assigned_profiles, 10) || 0;
-                const opLimit = u.whatsapp_limit !== null && u.whatsapp_limit !== undefined ? u.whatsapp_limit : (u.company_max_profiles || 2);
+                const opLimit = u.whatsapp_limit !== null && u.whatsapp_limit !== undefined ? u.whatsapp_limit : 0;
                 const uCompMax = u.company_whatsapp_limit || companyMaxWA;
+                const otherQuotas = companyUsers.filter(x => x.id !== u.id).reduce((s, x) => s + (parseInt(x.whatsapp_limit, 10) || 0), 0);
+                const maxAvailable = Math.max(0, uCompMax - otherQuotas);
 
                 const quotaWidget = `
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span class="badge" style="background: rgba(224, 77, 128, 0.15); color: var(--accent-pink); border: 1px solid rgba(224, 77, 128, 0.3); font-weight: 700; font-size: 11.5px; padding: 4px 8px;">
                             ${opLimit} WhatsApps
                         </span>
-                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 11px; border-color: rgba(224, 77, 128, 0.4); color: var(--accent-pink); display: inline-flex; align-items: center; gap: 4px;" title="Asignar cupo de cuentas a este operador" onclick="openOperatorQuotaModal('${u.id}', '${u.email.replace(/'/g, "\\'")}', ${opLimit}, ${assignedCount}, ${uCompMax})">
+                        <button class="btn-secondary" style="padding: 3px 8px; font-size: 11px; border-color: rgba(224, 77, 128, 0.4); color: var(--accent-pink); display: inline-flex; align-items: center; gap: 4px;" title="Asignar cupo de cuentas a este operador" onclick="openOperatorQuotaModal('${u.id}', '${u.email.replace(/'/g, "\\'")}', ${opLimit}, ${assignedCount}, ${uCompMax}, ${otherQuotas}, ${maxAvailable})">
                             ${getLucideSvg('sliders', 12)} Asignar Cupo
                         </button>
                     </div>
@@ -1186,26 +1200,27 @@ function openCreateUserModal(defaultRole = 'user') {
     const limitInput = document.getElementById('new-user-whatsapp-limit');
     const limitHint = document.getElementById('user-whatsapp-limit-hint');
     let companyMaxWA = 10;
-    let defaultOpLimit = 2;
 
     if (currentUser && currentUser.role === 'superadmin') {
         const comp = Array.isArray(companies) ? companies.find(c => c.id === activeCompanyId) : null;
-        if (comp) {
-            companyMaxWA = comp.whatsapp_limit || 10;
-            defaultOpLimit = comp.max_profiles_per_operator || 2;
-        }
+        if (comp) companyMaxWA = comp.whatsapp_limit || 10;
     } else if (currentUser) {
         companyMaxWA = currentUser.companyWhatsappLimit || 10;
-        defaultOpLimit = currentUser.maxProfilesPerOperator || 2;
     }
+
+    const totalAllocatedWA = Array.isArray(companyUsers) 
+        ? companyUsers.reduce((sum, user) => sum + (parseInt(user.whatsapp_limit, 10) || 0), 0)
+        : 0;
+    const freeQuotaWA = Math.max(0, companyMaxWA - totalAllocatedWA);
+    const defaultOpLimit = Math.min(2, freeQuotaWA);
 
     if (limitInput) {
         limitInput.value = defaultOpLimit;
-        limitInput.max = companyMaxWA;
+        limitInput.max = freeQuotaWA;
         limitInput.min = 0;
     }
     if (limitHint) {
-        limitHint.textContent = `(Cupo máx empresa: ${companyMaxWA})`;
+        limitHint.textContent = `(Cupos libres disponibles: ${freeQuotaWA} de ${companyMaxWA})`;
     }
 
     const hint = document.getElementById('pass-hint');
@@ -1412,16 +1427,38 @@ async function handleSaveUser() {
 let quotaTargetUserId = null;
 let quotaTargetCompanyMax = 10;
 let quotaTargetAssignedCount = 0;
+let quotaTargetOtherQuotas = 0;
+let quotaTargetMaxAvailable = 10;
 
-function openOperatorQuotaModal(userId, userEmail, currentLimit, assignedCount = 0, companyMax = 10) {
+function openOperatorQuotaModal(userId, userEmail, currentLimit, assignedCount = 0, companyMax = 10, otherQuotas = null, maxAvailable = null) {
     quotaTargetUserId = userId;
     quotaTargetCompanyMax = parseInt(companyMax, 10) || 10;
     quotaTargetAssignedCount = parseInt(assignedCount, 10) || 0;
 
+    if (otherQuotas === null || otherQuotas === undefined) {
+        if (Array.isArray(companyUsers)) {
+            quotaTargetOtherQuotas = companyUsers
+                .filter(u => u.id !== userId)
+                .reduce((s, u) => s + (parseInt(u.whatsapp_limit, 10) || 0), 0);
+        } else {
+            quotaTargetOtherQuotas = 0;
+        }
+    } else {
+        quotaTargetOtherQuotas = parseInt(otherQuotas, 10) || 0;
+    }
+
+    if (maxAvailable === null || maxAvailable === undefined) {
+        quotaTargetMaxAvailable = Math.max(0, quotaTargetCompanyMax - quotaTargetOtherQuotas);
+    } else {
+        quotaTargetMaxAvailable = parseInt(maxAvailable, 10);
+    }
+
     const emailEl = document.getElementById('quota-modal-user-email');
     const compTotalEl = document.getElementById('quota-modal-company-total');
+    const otherQuotasEl = document.getElementById('quota-modal-other-quotas');
     const userCreatedEl = document.getElementById('quota-modal-user-created');
     const currentLimitEl = document.getElementById('quota-modal-current-limit');
+    const maxAvailEl = document.getElementById('quota-modal-max-available');
     const inputEl = document.getElementById('quota-modal-input-limit');
     const hintEl = document.getElementById('quota-modal-hint');
     const errEl = document.getElementById('quota-modal-error');
@@ -1430,18 +1467,20 @@ function openOperatorQuotaModal(userId, userEmail, currentLimit, assignedCount =
     if (idEl) idEl.value = userId;
     if (emailEl) emailEl.textContent = userEmail || 'Operador';
     if (compTotalEl) compTotalEl.textContent = `${quotaTargetCompanyMax} WhatsApps`;
+    if (otherQuotasEl) otherQuotasEl.textContent = `${quotaTargetOtherQuotas} WhatsApps`;
     if (userCreatedEl) userCreatedEl.textContent = `${quotaTargetAssignedCount} WhatsApps`;
     
-    const parsedCurrentLimit = (currentLimit !== null && currentLimit !== undefined) ? parseInt(currentLimit, 10) : quotaTargetCompanyMax;
+    const parsedCurrentLimit = (currentLimit !== null && currentLimit !== undefined) ? parseInt(currentLimit, 10) : quotaTargetAssignedCount;
     if (currentLimitEl) currentLimitEl.textContent = `${parsedCurrentLimit} WhatsApps`;
+    if (maxAvailEl) maxAvailEl.textContent = `${quotaTargetMaxAvailable} WhatsApps`;
 
     if (inputEl) {
         inputEl.min = quotaTargetAssignedCount;
-        inputEl.max = quotaTargetCompanyMax;
+        inputEl.max = quotaTargetMaxAvailable;
         inputEl.value = parsedCurrentLimit;
     }
     if (hintEl) {
-        hintEl.textContent = `Permitido: ${quotaTargetAssignedCount} a ${quotaTargetCompanyMax}`;
+        hintEl.textContent = `Permitido: ${quotaTargetAssignedCount} a ${quotaTargetMaxAvailable}`;
     }
     if (errEl) {
         errEl.classList.add('hidden');
@@ -1473,13 +1512,13 @@ async function handleSaveOperatorQuota() {
     }
 
     if (newLimit < quotaTargetAssignedCount) {
-        const msg = `El cupo no puede ser menor a las cuentas que ya tiene creadas (${quotaTargetAssignedCount})`;
+        const msg = `El cupo no puede ser menor a las cuentas que ya tiene creadas (${quotaTargetAssignedCount}). Primero debes eliminar o desvincular cuentas de este operador.`;
         if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
         return toast(msg, 'error');
     }
 
-    if (newLimit > quotaTargetCompanyMax) {
-        const msg = `El cupo no puede superar el total contratado de la empresa (${quotaTargetCompanyMax})`;
+    if (newLimit > quotaTargetMaxAvailable) {
+        const msg = `No puedes asignar ${newLimit} cupos. El máximo disponible para este operador es ${quotaTargetMaxAvailable}, ya que los demás operadores tienen asignados ${quotaTargetOtherQuotas} de los ${quotaTargetCompanyMax} cupos totales de la empresa. Libera cupos de otros operadores para aumentarlo.`;
         if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
         return toast(msg, 'error');
     }

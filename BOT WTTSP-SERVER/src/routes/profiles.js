@@ -84,9 +84,9 @@ router.post('/', async (req, res) => {
     const countRes = await db.query('SELECT COUNT(*) FROM profiles WHERE company_id = $1', [compId]);
     const currentCompanyCount = parseInt(countRes.rows[0].count, 10);
 
-    if (currentCompanyCount >= maxCompanyWhatsApp && req.user.role !== 'superadmin') {
+    if (currentCompanyCount >= maxCompanyWhatsApp) {
       return res.status(403).json({
-        error: `Has alcanzado el límite total de cuentas de WhatsApp contratadas (${maxCompanyWhatsApp}). Contacta al soporte para ampliar tu plan.`,
+        error: `Has alcanzado el límite total de cuentas de WhatsApp contratadas para esta empresa (${maxCompanyWhatsApp} máx). Amplía el límite de la empresa para crear más cuentas.`,
         max: maxCompanyWhatsApp,
         code: 'COMPANY_WHATSAPP_LIMIT_REACHED'
       });
@@ -113,10 +113,10 @@ router.post('/', async (req, res) => {
       );
       const currentOperatorCount = parseInt(opCountRes.rows[0].count, 10);
 
-      if (currentOperatorCount >= operatorLimit && req.user.role !== 'superadmin') {
+      if (currentOperatorCount >= operatorLimit) {
         const who = req.user.role === 'user' ? 'tu' : `este operador (${userObj.email})`;
         return res.status(403).json({
-          error: `Se ha alcanzado el límite máximo de cuentas de WhatsApp asignado a ${who} (${operatorLimit} máx permitidas).`,
+          error: `Se ha alcanzado el límite máximo de cuentas de WhatsApp asignado a ${who} (${operatorLimit} máx permitidas). Asigna más cupo a este operador para continuar.`,
           max: operatorLimit,
           code: 'OPERATOR_WHATSAPP_LIMIT_REACHED'
         });

@@ -19,7 +19,8 @@ router.get('/', async (req, res) => {
       `SELECT u.id, u.email, u.role, u.status, u.created_at, u.whatsapp_limit,
               (SELECT COUNT(*) FROM profiles p WHERE p.assigned_user_id = u.id) as assigned_profiles,
               c.whatsapp_limit as company_whatsapp_limit,
-              c.max_profiles_per_operator as company_max_profiles
+              (SELECT COALESCE(SUM(u2.whatsapp_limit), 0) FROM users u2 WHERE u2.company_id = c.id) as company_total_allocated_quota,
+              (SELECT COALESCE(SUM(u3.whatsapp_limit), 0) FROM users u3 WHERE u3.company_id = c.id AND u3.id != u.id) as other_users_quota
        FROM users u
        LEFT JOIN companies c ON u.company_id = c.id
        WHERE u.company_id = $1 AND u.role != 'superadmin' AND u.email NOT ILIKE '%superadmin%'
@@ -37,7 +38,7 @@ router.get('/', async (req, res) => {
 // Strict Email Regex Validation
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-// POST /users - Create a new user (checks user_limit, whatsapp_limit & strict email)
+// POST /users - Create a new user (checks user_limit, zero-sum whatsapp_limit & strict email)
 router.post('/', async (req, res) => {
   const { email, password, role = 'user', whatsapp_limit } = req.body;
   const companyId = req.user.role === 'superadmin' && req.body.companyId 
@@ -55,15 +56,15 @@ router.post('/', async (req, res) => {
     });
   }
 
-  // Company admin can ONLY create operators (role = 'user')
-  if (req.user.role === 'admin' && role !== 'user') {
+  // Only superadmin can create or set admin users
+  if (role === 'admin' && req.user.role !== 'superadmin') {
     return res.status(403).json({ error: 'Solo el Super Administrador puede designar o crear Administradores.' });
   }
 
   try {
     // 1. Check user_limit and company whatsapp_limit
     const limitRes = await db.query(
-      `SELECT c.user_limit, c.whatsapp_limit, c.max_profiles_per_operator,
+      `SELECT c.user_limit, c.whatsapp_limit,
               (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.role = 'user') as current_operators
        FROM companies c WHERE c.id = $1`,
       [companyId]
@@ -73,7 +74,7 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Empresa no encontrada' });
     }
 
-    const { user_limit, whatsapp_limit: companyWhatsappLimit, max_profiles_per_operator, current_operators } = limitRes.rows[0];
+    const { user_limit, whatsapp_limit: companyWhatsappLimit, current_operators } = limitRes.rows[0];
     if (role === 'user' && parseInt(current_operators, 10) >= parseInt(user_limit, 10)) {
       return res.status(403).json({
         error: `Límite máximo de operadores alcanzado para esta empresa (${user_limit} máx). El SuperAdmin debe ampliar el cupo.`,
@@ -81,19 +82,29 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Validate operator whatsapp_limit if provided
-    let effectiveLimit = whatsapp_limit !== undefined && whatsapp_limit !== null && whatsapp_limit !== ''
-      ? parseInt(whatsapp_limit, 10)
-      : 2;
+    // Calculate remaining unallocated quota in the company
+    const allocRes = await db.query(
+      'SELECT COALESCE(SUM(whatsapp_limit), 0) as total_allocated FROM users WHERE company_id = $1',
+      [companyId]
+    );
+    const totalAllocated = parseInt(allocRes.rows[0].total_allocated, 10);
+    const compTotalWA = parseInt(companyWhatsappLimit, 10) || 10;
+    const freeQuota = Math.max(0, compTotalWA - totalAllocated);
 
-    if (isNaN(effectiveLimit) || effectiveLimit < 0) {
-      return res.status(400).json({ error: 'El límite de WhatsApp debe ser un número entero mayor o igual a 0.' });
-    }
-
-    if (effectiveLimit > (companyWhatsappLimit || 10)) {
-      return res.status(400).json({
-        error: `El límite asignado al operador (${effectiveLimit}) no puede superar el total de cuentas contratadas de la empresa (${companyWhatsappLimit || 10}).`
-      });
+    let effectiveLimit;
+    if (whatsapp_limit !== undefined && whatsapp_limit !== null && whatsapp_limit !== '') {
+      effectiveLimit = parseInt(whatsapp_limit, 10);
+      if (isNaN(effectiveLimit) || effectiveLimit < 0) {
+        return res.status(400).json({ error: 'El cupo de WhatsApp debe ser un número entero mayor o igual a 0.' });
+      }
+      if (effectiveLimit > freeQuota) {
+        return res.status(400).json({
+          error: `No hay suficientes cupos disponibles en la empresa. Cupos libres actuales: ${freeQuota} (de ${compTotalWA} totales). Reduce el cupo de otros operadores para asignarle ${effectiveLimit}.`
+        });
+      }
+    } else {
+      // Default to min(2, freeQuota). If 0 free, they get 0.
+      effectiveLimit = Math.min(2, freeQuota);
     }
 
     // 2. Check email uniqueness
@@ -182,23 +193,24 @@ router.patch('/:id', async (req, res) => {
     if (whatsapp_limit !== undefined && whatsapp_limit !== null && whatsapp_limit !== '') {
       const parsedLimit = parseInt(whatsapp_limit, 10);
       if (isNaN(parsedLimit) || parsedLimit < 0) {
-        return res.status(400).json({ error: 'El límite de WhatsApp debe ser un número entero mayor o igual a 0.' });
+        return res.status(400).json({ error: 'El cupo de WhatsApp debe ser un número entero mayor o igual a 0.' });
       }
 
-      // Fetch company whatsapp_limit
+      // Fetch company whatsapp_limit AND sum of quotas of other users in this company
       const compRes = await db.query(
-        'SELECT whatsapp_limit FROM companies WHERE id = $1',
-        [targetUser.rows[0].company_id]
+        `SELECT c.whatsapp_limit as comp_limit,
+                COALESCE(SUM(u.whatsapp_limit), 0) as other_quotas
+         FROM companies c
+         LEFT JOIN users u ON u.company_id = c.id AND u.id != $1
+         WHERE c.id = $2
+         GROUP BY c.whatsapp_limit`,
+        [id, targetUser.rows[0].company_id]
       );
-      const companyMax = compRes.rows.length > 0 ? (compRes.rows[0].whatsapp_limit || 10) : 10;
+      const compLimit = compRes.rows.length > 0 ? (parseInt(compRes.rows[0].comp_limit, 10) || 10) : 10;
+      const otherQuotas = compRes.rows.length > 0 ? (parseInt(compRes.rows[0].other_quotas, 10) || 0) : 0;
+      const maxAvailableForUser = Math.max(0, compLimit - otherQuotas);
 
-      if (parsedLimit > companyMax) {
-        return res.status(400).json({
-          error: `El límite individual (${parsedLimit}) no puede superar el límite total contratado de la empresa (${companyMax} cuentas máx).`
-        });
-      }
-
-      // Check if user already has more assigned profiles than parsedLimit
+      // Floor check: cannot lower below accounts already created by this user
       const assignedRes = await db.query(
         'SELECT COUNT(*) FROM profiles WHERE assigned_user_id = $1',
         [id]
@@ -206,7 +218,14 @@ router.patch('/:id', async (req, res) => {
       const currentAssigned = parseInt(assignedRes.rows[0].count, 10);
       if (parsedLimit < currentAssigned) {
         return res.status(400).json({
-          error: `No puedes asignar un límite de ${parsedLimit} cuentas porque este usuario ya tiene ${currentAssigned} cuentas de WhatsApp creadas. Debe eliminar cuentas primero para reducir su cupo.`
+          error: `El cupo no puede ser menor a las cuentas que ya tiene creadas (${currentAssigned}). Para reducir el cupo primero debes eliminar o desvincular cuentas de este operador.`
+        });
+      }
+
+      // Ceiling check: cannot exceed remaining available unallocated quota
+      if (parsedLimit > maxAvailableForUser) {
+        return res.status(400).json({
+          error: `No puedes asignar ${parsedLimit} cupos. El máximo disponible para este operador es ${maxAvailableForUser}, ya que los demás operadores tienen asignados ${otherQuotas} de los ${compLimit} cupos totales de la empresa. Libera cupos de otros operadores para aumentarlo.`
         });
       }
 
