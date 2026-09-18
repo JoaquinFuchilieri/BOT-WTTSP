@@ -81,7 +81,7 @@
                         <span class="nav-icon"><i data-lucide="bar-chart-3"></i></span>
                         <span class="nav-text">Métricas & Reportes</span>
                     </a>
-                    <a class="nav-item" id="nav-distribution" data-view="view-distribution">
+                    <a class="nav-item hidden" id="nav-distribution" data-view="view-distribution" style="display: none !important;">
                         <span class="nav-icon"><i data-lucide="send"></i></span>
                         <span class="nav-text">Base de Datos de Números</span>
                     </a>
@@ -1101,6 +1101,103 @@
         </div>
     </div>
 
+    <!-- Modal: Cargar Números de Contacto para Bot Particular (Operador) -->
+    <div id="modal-bot-queue" class="modal hidden">
+        <div class="modal-card" style="max-width: 620px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <h3 id="modal-bot-queue-title" style="display: flex; align-items: center; gap: 8px; font-size: 17px;">
+                    <i data-lucide="upload-cloud" style="color: var(--accent-pink);"></i> Cargar Números
+                </h3>
+                <span id="modal-bot-queue-badge" class="badge active" style="font-size: 11px;">WhatsApp</span>
+            </div>
+            <p id="modal-bot-queue-subtitle" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+                Cargá la base de números que serán contactados exclusivamente por este WhatsApp con su mensaje particular.
+            </p>
+            <input type="hidden" id="modal-bot-queue-profile-id">
+
+            <!-- Resumen de Cola Actual del Bot -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-hairline); border-radius: 10px; padding: 10px; text-align: center;">
+                    <div id="modal-bot-queue-stat-pending" style="font-size: 18px; font-weight: 700; color: var(--accent-pink);">0</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">En Cola (Pendientes)</div>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-hairline); border-radius: 10px; padding: 10px; text-align: center;">
+                    <div id="modal-bot-queue-stat-sent" style="font-size: 18px; font-weight: 700; color: #4ade80;">0</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Enviados Hoy</div>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-hairline); border-radius: 10px; padding: 10px; text-align: center;">
+                    <div id="modal-bot-queue-stat-errors" style="font-size: 18px; font-weight: 700; color: #f87171;">0</div>
+                    <div style="font-size: 11px; color: var(--text-secondary);">Errores</div>
+                </div>
+            </div>
+
+            <!-- Acciones de carga: Archivo o Pegado -->
+            <div class="form-group" style="margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="margin-bottom: 0;">Subir archivo de números (.txt o .csv):</label>
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('modal-bot-queue-file').click()" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px;">
+                        <i data-lucide="folder-open" style="width: 13px; height: 13px;"></i> Examinar archivo
+                    </button>
+                    <input type="file" id="modal-bot-queue-file" accept=".txt,.csv" onchange="handleBotQueueFileChange(event)" style="display: none;">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label for="modal-bot-queue-textarea">O pegá los números de teléfono (uno por línea):</label>
+                <textarea id="modal-bot-queue-textarea" rows="6" oninput="handleBotQueueTextareaChange()" style="width: 100%; font-family: monospace; font-size: 13px; padding: 12px; resize: vertical; box-sizing: border-box;" placeholder="Ejemplo:&#10;+5491123456789&#10;+5491198765432&#10;5491144445555"></textarea>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                    <span id="modal-bot-queue-parsed-count" style="font-size: 12px; color: var(--accent-pink); font-weight: 600;">0 números detectados</span>
+                    <span style="font-size: 11px; color: var(--text-tertiary);">Se normalizan números y se descartan duplicados</span>
+                </div>
+            </div>
+
+            <!-- Botones de administración de cola para este bot -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-hairline); flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; gap: 8px;">
+                    <button id="modal-bot-queue-clear-btn" onclick="handleClearBotQueue()" class="btn-danger" style="padding: 7px 12px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px;" title="Borrar números pendientes que aún no fueron enviados">
+                        <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i> Vaciar Pendientes
+                    </button>
+                    <button id="modal-bot-queue-retry-btn" onclick="handleRetryBotQueueErrors()" class="btn-secondary" style="padding: 7px 12px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px;" title="Reintentar números que fallaron">
+                        <i data-lucide="rotate-ccw" style="width: 13px; height: 13px;"></i> Reintentar Errores
+                    </button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="modal-bot-queue-cancel" onclick="closeBotQueueModal()" class="btn-secondary">Cerrar</button>
+                    <button id="modal-bot-queue-save" onclick="handleSaveBotQueue()" class="btn-primary" style="display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="upload" style="width: 14px; height: 14px;"></i> Cargar Números a este Bot
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vista previa de números en cola para este bot -->
+            <div style="margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="list" style="width: 13px; height: 13px;"></i> Números en Cola de este Bot
+                    </span>
+                    <button type="button" id="modal-bot-queue-refresh-list" onclick="refreshBotQueueModal()" class="btn-secondary" style="padding: 3px 8px; font-size: 11px;">
+                        <i data-lucide="refresh-cw" style="width: 11px; height: 11px;"></i> Actualizar Lista
+                    </button>
+                </div>
+                <div style="max-height: 140px; overflow-y: auto; border: 1px solid var(--border-hairline); border-radius: 8px; background: rgba(0,0,0,0.2);">
+                    <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border-hairline); color: var(--text-tertiary); text-align: left;">
+                                <th style="padding: 6px 10px;">#</th>
+                                <th style="padding: 6px 10px;">Teléfono</th>
+                                <th style="padding: 6px 10px;">Estado</th>
+                                <th style="padding: 6px 10px;">Cargado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-bot-queue-tbody">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Detalle de Ticket / Reporte de Soporte (SuperAdmin) -->
     <div id="modal-ticket-detail" class="modal hidden">
         <div class="modal-card" style="max-width: 540px;">
@@ -1348,8 +1445,8 @@
     <script src="js/lucide.min.js?v=20260918_v1"></script>
     <script src="js/icons-helper.js?v=20260918_v1"></script>
     <script src="js/dialog.js?v=20260918_v1"></script>
-    <script src="js/app.js?v=20260918_v6"></script>
-    <script src="js/operator-view.js?v=20260918_v2"></script>
+    <script src="js/app.js?v=20260918_v7"></script>
+    <script src="js/operator-view.js?v=20260918_v3"></script>
     <script src="js/distribution-view.js?v=20260918_v1"></script>
 </body>
 </html>

@@ -133,11 +133,15 @@ function renderOperatorBots(bots) {
                     </div>
                 </div>
 
-                <!-- Message Configuration Button -->
-                <div style="margin-bottom: 14px;">
-                    <button class="btn-secondary" onclick="openMessageModal('${bot.id}', '${escapeHtml(bot.name)}')" style="width: 100%; padding: 10px 14px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-hairline); border-radius: 10px; cursor: pointer;">
+                <!-- Configuration Buttons: Automatic Message & Load Numbers -->
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+                    <button class="btn-secondary" onclick="openMessageModal('${bot.id}', '${escapeHtml(bot.name)}')" style="width: 100%; padding: 9px 14px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-hairline); border-radius: 10px; cursor: pointer;">
                         <i data-lucide="message-square" style="width: 15px; height: 15px; color: var(--accent-pink);"></i>
                         <strong style="color: var(--text-primary);">Mensaje Automático</strong>
+                    </button>
+                    <button class="btn-secondary" onclick="openBotQueueModal('${bot.id}', '${escapeHtml(bot.name)}')" style="width: 100%; padding: 9px 14px; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(224, 77, 128, 0.07); border: 1px solid rgba(224, 77, 128, 0.3); border-radius: 10px; cursor: pointer;" title="Cargar números de teléfono para que este bot les envíe mensajes">
+                        <i data-lucide="upload" style="width: 15px; height: 15px; color: var(--accent-pink);"></i>
+                        <strong style="color: #fff;">Cargar Números</strong>
                     </button>
                 </div>
 
@@ -647,7 +651,278 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initOperatorWebSocket();
+
+    const queueModal = document.getElementById('modal-bot-queue');
+    if (queueModal) {
+        queueModal.addEventListener('click', (e) => {
+            if (e.target.id === 'modal-bot-queue') closeBotQueueModal();
+        });
+    }
 });
+
+/**
+ * Bot Queue Management Modal
+ */
+let activeQueueBotId = null;
+
+async function openBotQueueModal(profileId, profileName) {
+    activeQueueBotId = profileId;
+    const bot = Array.isArray(operatorBots) ? operatorBots.find(b => b.id === profileId) : null;
+    
+    const modal = document.getElementById('modal-bot-queue');
+    const titleEl = document.getElementById('modal-bot-queue-title');
+    const badgeEl = document.getElementById('modal-bot-queue-badge');
+    const subtitleEl = document.getElementById('modal-bot-queue-subtitle');
+    const profileIdInput = document.getElementById('modal-bot-queue-profile-id');
+    const textarea = document.getElementById('modal-bot-queue-textarea');
+    const fileInput = document.getElementById('modal-bot-queue-file');
+    const countEl = document.getElementById('modal-bot-queue-parsed-count');
+
+    const name = profileName || (bot ? bot.name : 'WhatsApp');
+    const phone = bot && bot.phone_number ? `+${bot.phone_number}` : 'Sin número vinculado';
+
+    if (titleEl) {
+        titleEl.innerHTML = `<i data-lucide="upload-cloud" style="color: var(--accent-pink);"></i> Cargar Números: ${escapeHtml(name)}`;
+    }
+    if (badgeEl) {
+        badgeEl.textContent = phone;
+    }
+    if (subtitleEl) {
+        subtitleEl.textContent = `Los números que cargues aquí serán contactados exclusivamente por este bot (${escapeHtml(name)}) con su mensaje asignado.`;
+    }
+    if (profileIdInput) {
+        profileIdInput.value = profileId;
+    }
+    if (textarea) {
+        textarea.value = '';
+    }
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    if (countEl) {
+        countEl.textContent = '0 números detectados';
+        countEl.style.color = 'var(--text-tertiary)';
+    }
+
+    if (modal) modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+
+    await loadBotQueueData(profileId);
+}
+
+function closeBotQueueModal() {
+    activeQueueBotId = null;
+    const modal = document.getElementById('modal-bot-queue');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function loadBotQueueData(profileId) {
+    if (!profileId) return;
+
+    const statPending = document.getElementById('modal-bot-queue-stat-pending');
+    const statSent = document.getElementById('modal-bot-queue-stat-sent');
+    const statErrors = document.getElementById('modal-bot-queue-stat-errors');
+    const tbody = document.getElementById('modal-bot-queue-tbody');
+
+    try {
+        const queue = await api(`/profiles/${profileId}/queue`);
+        
+        let pending = 0;
+        let sent = 0;
+        let errors = 0;
+
+        if (Array.isArray(queue)) {
+            queue.forEach(item => {
+                if (item.status === 'pending') pending++;
+                else if (item.status === 'sent') sent++;
+                else if (item.status === 'error') errors++;
+            });
+        }
+
+        const bot = Array.isArray(operatorBots) ? operatorBots.find(b => b.id === profileId) : null;
+        if (bot) {
+            bot.pending_count = pending;
+            bot.error_count = errors;
+        }
+
+        if (statPending) statPending.textContent = pending;
+        if (statSent) statSent.textContent = bot ? (bot.sent_today || 0) : sent;
+        if (statErrors) statErrors.textContent = errors;
+
+        // Update card stats in background
+        const cardPending = document.getElementById(`bot-pending-${profileId}`);
+        const cardErrors = document.getElementById(`bot-errors-${profileId}`);
+        if (cardPending) cardPending.textContent = pending;
+        if (cardErrors) cardErrors.textContent = errors;
+
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (!queue || queue.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 16px;">No hay números en la cola de este WhatsApp todavía.</td></tr>';
+                return;
+            }
+
+            queue.slice(0, 100).forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+                
+                let badgeClass = 'active';
+                let label = 'Pendiente';
+                if (item.status === 'sent') {
+                    badgeClass = 'btn-success';
+                    label = 'Enviado';
+                } else if (item.status === 'error') {
+                    badgeClass = 'disabled';
+                    label = 'Error';
+                } else if (item.status === 'sending') {
+                    badgeClass = 'btn-primary';
+                    label = 'Enviando...';
+                }
+
+                const dateStr = item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
+
+                tr.innerHTML = `
+                    <td style="padding: 6px 10px; color: var(--text-tertiary);">${index + 1}</td>
+                    <td style="padding: 6px 10px; font-family: monospace; font-weight: 600;">${escapeHtml(item.phone_number)}</td>
+                    <td style="padding: 6px 10px;"><span class="badge ${badgeClass}" style="font-size: 10.5px; padding: 2px 8px;">${label}</span></td>
+                    <td style="padding: 6px 10px; color: var(--text-secondary);">${dateStr}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (err) {
+        console.error('[OperatorView] Error loading bot queue:', err);
+    }
+}
+
+function parseNumbersFromText(text) {
+    if (!text || typeof text !== 'string') return [];
+    return text.split(/[\r\n,;]+/)
+        .map(n => n.replace(/[^\d+]/g, '').trim())
+        .filter(n => {
+            const digits = n.replace('+', '');
+            return digits.length >= 7 && digits.length <= 16;
+        });
+}
+
+function handleBotQueueTextareaChange() {
+    const textarea = document.getElementById('modal-bot-queue-textarea');
+    const countEl = document.getElementById('modal-bot-queue-parsed-count');
+    if (!textarea || !countEl) return;
+
+    const numbers = parseNumbersFromText(textarea.value);
+    const uniqueNumbers = Array.from(new Set(numbers));
+
+    if (uniqueNumbers.length > 0) {
+        countEl.textContent = `${uniqueNumbers.length} números válidos detectados`;
+        countEl.style.color = 'var(--accent-pink)';
+    } else {
+        countEl.textContent = '0 números detectados';
+        countEl.style.color = 'var(--text-tertiary)';
+    }
+}
+
+function handleBotQueueFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const textarea = document.getElementById('modal-bot-queue-textarea');
+        if (textarea) {
+            const existing = textarea.value.trim();
+            textarea.value = existing ? `${existing}\n${event.target.result}` : event.target.result;
+            handleBotQueueTextareaChange();
+        }
+        toast('Archivo cargado en el campo de texto', 'info');
+    };
+    reader.onerror = () => {
+        toast('Error al leer el archivo seleccionado', 'error');
+    };
+    reader.readAsText(file);
+}
+
+async function handleSaveBotQueue() {
+    if (!activeQueueBotId) return;
+
+    const textarea = document.getElementById('modal-bot-queue-textarea');
+    const text = textarea ? textarea.value : '';
+    const numbers = parseNumbersFromText(text);
+    const uniqueNumbers = Array.from(new Set(numbers));
+
+    if (uniqueNumbers.length === 0) {
+        return toast('Ingresá o pegá al menos un número telefónico válido (ej: +54911...)', 'warning');
+    }
+
+    const saveBtn = document.getElementById('modal-bot-queue-save');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Importando...';
+    }
+
+    try {
+        const res = await api(`/profiles/${activeQueueBotId}/queue/import`, {
+            method: 'POST',
+            body: JSON.stringify({ numbers: uniqueNumbers })
+        });
+
+        let msg = `¡Carga exitosa! ${res.imported} números cargados para este bot.`;
+        if (res.skippedBlacklist && res.skippedBlacklist > 0) {
+            msg += ` (${res.skippedBlacklist} omitidos por Lista de Exclusión).`;
+        }
+        toast(msg, 'success');
+
+        if (textarea) textarea.value = '';
+        handleBotQueueTextareaChange();
+
+        await loadBotQueueData(activeQueueBotId);
+        await loadOperatorBots();
+    } catch (err) {
+        toast(err.message || 'Error al importar números a este bot', 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i data-lucide="upload" style="width: 14px; height: 14px;"></i> Cargar Números a este Bot';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+async function handleClearBotQueue() {
+    if (!activeQueueBotId) return;
+
+    const confirmed = await window.showConfirm({
+        title: '¿Vaciar Cola Pendiente?',
+        message: '¿Estás seguro de que deseas eliminar todos los números pendientes de este bot? Los números ya enviados se conservarán en el historial.',
+        confirmText: 'Vaciar Cola',
+        cancelText: 'Cancelar',
+        type: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const res = await api(`/profiles/${activeQueueBotId}/queue?status=pending`, { method: 'DELETE' });
+        toast(`Se eliminaron ${res.deleted || 0} números pendientes de este bot`, 'info');
+        await loadBotQueueData(activeQueueBotId);
+        await loadOperatorBots();
+    } catch (err) {
+        toast(err.message || 'Error al vaciar cola', 'error');
+    }
+}
+
+async function handleRetryBotQueueErrors() {
+    if (!activeQueueBotId) return;
+
+    try {
+        const res = await api(`/profiles/${activeQueueBotId}/queue/retry-errors`, { method: 'POST' });
+        toast(`${res.retried || 0} números con error fueron devueltos a pendientes`, 'success');
+        await loadBotQueueData(activeQueueBotId);
+        await loadOperatorBots();
+    } catch (err) {
+        toast(err.message || 'Error al reintentar números', 'error');
+    }
+}
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -657,6 +932,10 @@ function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+function refreshBotQueueModal() {
+    if (activeQueueBotId) loadBotQueueData(activeQueueBotId);
 }
 
 // Global window exposure for inline onclick handlers
@@ -672,6 +951,14 @@ window.handleCreateOperatorBot = handleCreateOperatorBot;
 window.toggleBotState = toggleBotState;
 window.saveModalBotMessage = saveModalBotMessage;
 window.openMessageModal = openMessageModal;
+window.openBotQueueModal = openBotQueueModal;
+window.closeBotQueueModal = closeBotQueueModal;
+window.handleSaveBotQueue = handleSaveBotQueue;
+window.handleClearBotQueue = handleClearBotQueue;
+window.handleRetryBotQueueErrors = handleRetryBotQueueErrors;
+window.handleBotQueueTextareaChange = handleBotQueueTextareaChange;
+window.handleBotQueueFileChange = handleBotQueueFileChange;
+window.refreshBotQueueModal = refreshBotQueueModal;
 window.editBotName = editBotName;
 window.closeQrModal = closeQrModal;
 window.initOperatorWebSocket = initOperatorWebSocket;

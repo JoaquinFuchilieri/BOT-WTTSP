@@ -354,13 +354,13 @@ function showAppShell() {
         if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.add('hidden');
 
         if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.remove('hidden');
-        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.remove('hidden');
+        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.add('hidden');
 
         activeCompanyId = currentUser.companyId;
         activeCompanyName = currentUser.companyName || 'Mi Empresa';
         updateBreadcrumb();
 
-        const validViews = ['view-operator-bots', 'view-distribution'];
+        const validViews = ['view-operator-bots'];
         if (savedView && validViews.includes(savedView)) {
             switchView(savedView);
         } else {
@@ -378,7 +378,7 @@ function showAppShell() {
         document.getElementById('nav-reports').classList.remove('hidden');
         document.getElementById('nav-metrics').classList.remove('hidden');
         document.getElementById('nav-operators').classList.remove('hidden');
-        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.remove('hidden');
+        if (document.getElementById('nav-distribution')) document.getElementById('nav-distribution').classList.add('hidden');
         if (document.getElementById('nav-admin-announcements')) document.getElementById('nav-admin-announcements').classList.remove('hidden');
         if (document.getElementById('btn-open-announcements-inbox')) document.getElementById('btn-open-announcements-inbox').classList.remove('hidden');
 
@@ -387,7 +387,7 @@ function showAppShell() {
         updateBreadcrumb();
         loadAdminAnnouncementsInbox();
 
-        const validViews = ['view-metrics', 'view-blacklist', 'view-operators', 'view-reports', 'view-admin-announcements', 'view-distribution'];
+        const validViews = ['view-metrics', 'view-blacklist', 'view-operators', 'view-reports', 'view-admin-announcements'];
         if (savedView && validViews.includes(savedView)) {
             switchView(savedView);
         } else {
@@ -1098,6 +1098,9 @@ async function loadNestedOperatorProfiles() {
                 <td>${p.sent_today || 0}</td>
                 <td>${p.daily_limit || 200}</td>
                 <td>
+                    <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" onclick="openBotQueueModal('${p.id}', '${p.name.replace(/'/g, "\\'")}')">
+                        ${getLucideSvg('upload', 12)} Cargar Números
+                    </button>
                     ${currentUser && currentUser.role === 'superadmin' ? `
                     <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;" onclick="openProfileConfigModal('${p.id}')">
                         ${getLucideSvg('sliders', 12)} Ajustes
