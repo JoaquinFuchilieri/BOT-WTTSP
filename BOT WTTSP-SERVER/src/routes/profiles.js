@@ -4,6 +4,7 @@ const db = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/authenticate');
 const baileysManager = require('../services/baileys-manager');
 const botEngine = require('../services/server-bot-engine');
+const proxyPoolManager = require('../services/proxy-pool-manager');
 
 router.use(authenticateToken);
 
@@ -108,6 +109,9 @@ router.post('/', async (req, res) => {
       RETURNING *`,
       [compId, effectiveAssignedUserId || null, name.trim(), message]
     );
+
+    // Auto-assign proxy slot from pool in groups of 20 (or VPS fallback)
+    proxyPoolManager.rebalanceAllProfiles().catch(e => console.error('[Profile Auto-Assign Error]:', e.message));
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -355,6 +359,9 @@ router.delete('/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Profile not found or unauthorized' });
     }
+
+    // Auto-rebalance proxies across remaining accounts
+    proxyPoolManager.rebalanceAllProfiles().catch(e => console.error('[Profile Rebalance Error]:', e.message));
 
     res.json({ message: 'Profile deleted successfully', id });
   } catch (err) {

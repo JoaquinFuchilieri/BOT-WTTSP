@@ -26,6 +26,15 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS proxy_pool (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proxy_url VARCHAR(500) NOT NULL,
+    label VARCHAR(100),
+    max_capacity INTEGER DEFAULT 20,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -53,6 +62,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     warmup_max_limit INTEGER DEFAULT 200,
     is_paused_early_warning BOOLEAN DEFAULT FALSE,
     early_warning_reason TEXT DEFAULT '',
+    proxy_id UUID REFERENCES proxy_pool(id) ON DELETE SET NULL,
     proxy_url VARCHAR(500) DEFAULT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

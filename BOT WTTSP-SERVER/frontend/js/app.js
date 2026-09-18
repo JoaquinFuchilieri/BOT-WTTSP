@@ -1,3 +1,13 @@
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 // =========================================================
 // SaaS Web Dashboard Controller (Hierarchical Box-in-Box)
 // With Gemini Collapsible Sidebar & Apple macOS Dark Theme
@@ -92,6 +102,12 @@ function setupEventListeners() {
     on('blacklist-search-input', 'input', filterBlacklistTable);
 
     // 7. System Announcements (SuperAdmin & Admin View)
+    // 8. Centralized Proxy Pool (SuperAdmin Only)
+    on('btn-open-superadmin-proxies', 'click', () => switchView('view-proxies'));
+    on('btn-back-from-proxies', 'click', () => switchView('view-companies'));
+    on('btn-rebalance-proxies', 'click', handleRebalanceProxies);
+    on('btn-save-pool-proxies', 'click', handleBulkAddProxies);
+
     on('btn-open-superadmin-announcements', 'click', () => switchView('view-announcements'));
     on('btn-back-from-announcements', 'click', handleBackFromAnnouncements);
     on('btn-open-create-announcement', 'click', openCreateAnnouncementModal);
@@ -268,6 +284,7 @@ function showAppShell() {
     if (currentUser.role === 'superadmin') {
         document.getElementById('nav-companies').classList.remove('hidden');
         document.getElementById('nav-announcements').classList.remove('hidden');
+        if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.remove('hidden');
         document.getElementById('nav-admins').classList.remove('hidden');
         document.getElementById('nav-blacklist').classList.remove('hidden');
         document.getElementById('nav-audit').classList.remove('hidden');
@@ -280,7 +297,7 @@ function showAppShell() {
         const savedCompName = localStorage.getItem('saas_active_company_name');
         const savedCompStatus = localStorage.getItem('saas_active_company_status');
 
-        if (savedCompId && savedView && savedView !== 'view-companies' && savedView !== 'view-announcements') {
+        if (savedCompId && savedView && savedView !== 'view-companies' && savedView !== 'view-announcements' && savedView !== 'view-proxies') {
             activeCompanyId = savedCompId;
             activeCompanyName = savedCompName || 'Empresa';
             activeCompanyStatus = savedCompStatus || 'active';
@@ -288,6 +305,8 @@ function showAppShell() {
             switchView(savedView);
         } else if (savedView === 'view-announcements') {
             switchView('view-announcements');
+        } else if (savedView === 'view-proxies') {
+            switchView('view-proxies');
         } else {
             switchView('view-companies');
         }
@@ -295,6 +314,7 @@ function showAppShell() {
         // OPERATOR VIEW
         document.getElementById('nav-companies').classList.add('hidden');
         document.getElementById('nav-announcements').classList.add('hidden');
+        if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.add('hidden');
         document.getElementById('nav-admins').classList.add('hidden');
         document.getElementById('nav-operators').classList.add('hidden');
         document.getElementById('nav-blacklist').classList.add('hidden');
@@ -321,6 +341,7 @@ function showAppShell() {
         // COMPANY ADMIN
         document.getElementById('nav-companies').classList.add('hidden');
         document.getElementById('nav-announcements').classList.add('hidden');
+        if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.add('hidden');
         document.getElementById('nav-admins').classList.add('hidden');
         if (document.getElementById('nav-operator-bots')) document.getElementById('nav-operator-bots').classList.add('hidden');
         document.getElementById('nav-blacklist').classList.remove('hidden');
@@ -350,7 +371,9 @@ function showAppShell() {
     metricsPollInterval = setInterval(async () => {
         const activeView = localStorage.getItem('saas_active_view');
         try {
-            if (activeView === 'view-companies' && currentUser && currentUser.role === 'superadmin') {
+            if (activeView === 'view-proxies' && currentUser && currentUser.role === 'superadmin') {
+                await loadProxiesPoolView();
+            } else if (activeView === 'view-companies' && currentUser && currentUser.role === 'superadmin') {
                 await loadCompaniesDirectory();
             } else if (activeView === 'view-metrics' && activeCompanyId && currentUser && currentUser.role !== 'user') {
                 await loadCompanyMetrics();
@@ -379,7 +402,11 @@ function updateBreadcrumb(currentViewId) {
     if (!currentUser) return;
 
     if (currentUser.role === 'superadmin') {
-        if (vId === 'view-reports') {
+        if (vId === 'view-proxies') {
+            rootEl.textContent = 'SuperAdmin:';
+            compEl.textContent = 'Pool Centralizado de Proxies';
+            switchBtn.classList.remove('hidden');
+        } else if (vId === 'view-reports') {
             rootEl.textContent = 'Soporte:';
             compEl.textContent = 'Reportes Globales de Técnicos / Admins';
             switchBtn.classList.remove('hidden');
@@ -416,13 +443,13 @@ function switchView(viewId) {
     const sidebar = document.getElementById('sidebar');
 
     // If non-superadmin tries to open audit, restrict and redirect
-    if (viewId === 'view-audit' && currentUser && currentUser.role !== 'superadmin') {
+    if ((viewId === 'view-audit' || viewId === 'view-proxies') && currentUser && currentUser.role !== 'superadmin') {
         toast('Acceso restringido: Auditoría es exclusivo para SuperAdmin', 'error');
         viewId = currentUser.role === 'admin' ? 'view-metrics' : 'view-operator-bots';
     }
 
     // If SuperAdmin tries to open an in-company view without an active company, redirect to company directory
-    const globalSuperadminViews = ['view-companies', 'view-reports', 'view-announcements'];
+    const globalSuperadminViews = ['view-companies', 'view-reports', 'view-announcements', 'view-proxies'];
     if (currentUser && currentUser.role === 'superadmin' && !activeCompanyId && !globalSuperadminViews.includes(viewId)) {
         toast('Seleccioná una empresa del directorio primero', 'error');
         viewId = 'view-companies';
@@ -469,6 +496,9 @@ function switchView(viewId) {
     } else if (viewId === 'view-announcements') {
         updateBreadcrumb();
         loadAnnouncementsList();
+    } else if (viewId === 'view-proxies') {
+        updateBreadcrumb();
+        loadProxiesPoolView();
     } else if (viewId === 'view-admin-announcements') {
         updateBreadcrumb();
         loadAdminAnnouncementsView();
@@ -2617,10 +2647,21 @@ async function openProfileConfigModal(profileId) {
         document.getElementById('cfg-warmup-increment').value = p.warmup_daily_increment || 15;
         document.getElementById('cfg-warmup-max').value = p.warmup_max_limit || 200;
 
-        // Dedicated Proxy
-        const proxyInput = document.getElementById('cfg-proxy-url');
-        if (proxyInput) {
-            proxyInput.value = p.proxy_url || '';
+        // Auto-assigned Proxy status
+        const proxyBadge = document.getElementById('cfg-proxy-status-badge');
+        if (proxyBadge) {
+            if (p.proxy_url) {
+                let display = p.proxy_url;
+                try {
+                    const u = new URL(p.proxy_url.startsWith('http') || p.proxy_url.startsWith('socks5') ? p.proxy_url : 'http://' + p.proxy_url);
+                    display = u.protocol + '//' + u.host;
+                } catch(e) {}
+                proxyBadge.className = 'status-badge status-connected';
+                proxyBadge.textContent = 'Asignada por Pool: ' + display;
+            } else {
+                proxyBadge.className = 'status-badge status-warning';
+                proxyBadge.textContent = 'Sin proxy (Conexión Directa por VPS)';
+            }
         }
 
         showModal('modal-profile-config');
@@ -2645,8 +2686,6 @@ async function handleSaveProfileConfig() {
     const warmup_day = parseInt(document.getElementById('cfg-warmup-day').value, 10) || 1;
     const warmup_daily_increment = parseInt(document.getElementById('cfg-warmup-increment').value, 10) || 15;
     const warmup_max_limit = parseInt(document.getElementById('cfg-warmup-max').value, 10) || 200;
-    const proxyInput = document.getElementById('cfg-proxy-url');
-    const proxy_url = proxyInput ? (proxyInput.value.trim() || null) : null;
 
     try {
         await api(`/profiles/${profileId}/config`, {
@@ -3087,3 +3126,205 @@ window.cancelEditHelpManual = cancelEditHelpManual;
 window.handleSaveHelpManual = handleSaveHelpManual;
 window.handleResetHelpManual = handleResetHelpManual;
 
+
+
+// ================= CENTRALIZED PROXY POOL (SUPERADMIN ONLY) =================
+async function loadProxiesPoolView() {
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        return toast('Acceso restringido: Solo el SuperAdmin puede gestionar el Pool de Proxies', 'error');
+    }
+
+    try {
+        const data = await api('/admin/proxies');
+        if (!data) return;
+
+        const stats = data.stats || {};
+        const statProxies = document.getElementById('stat-pool-total-proxies');
+        const statCap = document.getElementById('stat-pool-total-capacity');
+        const statAssigned = document.getElementById('stat-pool-assigned-accounts');
+        const statDirect = document.getElementById('stat-pool-direct-vps');
+
+        if (statProxies) statProxies.textContent = stats.totalProxies || 0;
+        if (statCap) statCap.textContent = stats.totalCapacity || 0;
+        if (statAssigned) statAssigned.textContent = stats.assignedToProxies || 0;
+        if (statDirect) statDirect.textContent = (stats.directVpsCount !== undefined ? stats.directVpsCount : stats.directVps) || 0;
+
+        // Render Proxies Table
+        const proxiesTbody = document.getElementById('pool-proxies-table-body');
+        if (proxiesTbody) {
+            if (!data.proxies || data.proxies.length === 0) {
+                proxiesTbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--text-tertiary); padding: 28px;">
+                            No hay proxies cargados en el pool. Todas las cuentas de WhatsApp se conectan automáticamente usando la IP directa de la VPS.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                proxiesTbody.innerHTML = data.proxies.map((p, idx) => {
+                    const ratio = p.assigned_count >= p.max_capacity ? 'badge-danger' : (p.assigned_count > 0 ? 'badge-success' : 'badge-neutral');
+                    return `
+                        <tr>
+                            <td style="font-weight: 600; color: var(--text-secondary);">${idx + 1}</td>
+                            <td><span style="font-family: monospace; font-weight: 600; color: #60a5fa;">${escapeHtml(p.label || p.host)}</span></td>
+                            <td><span class="badge" style="text-transform: uppercase; font-size: 11px;">${escapeHtml((p.protocol || 'http').replace(':', ''))}</span></td>
+                            <td><code style="font-size: 11.5px; color: var(--text-secondary); background: rgba(0,0,0,0.25); padding: 2px 6px; border-radius: 4px;">${escapeHtml(p.maskedUrl || p.masked_url)}</code></td>
+                            <td>
+                                <span class="badge ${ratio}" style="font-size: 11.5px;">
+                                    ${p.assigned_count} / ${p.max_capacity} WhatsApps
+                                </span>
+                            </td>
+                            <td style="color: var(--text-secondary); font-size: 12px;">Máx ${p.max_capacity} cuentas</td>
+                            <td>
+                                <button class="btn-secondary" style="padding: 4px 10px; font-size: 11.5px; color: #f87171; border-color: rgba(239,68,68,0.3); display: inline-flex; align-items: center; gap: 4px;" onclick="handleDeleteProxy('${p.id}')">
+                                    <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i> Eliminar
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Render Assignments Table
+        const assignTbody = document.getElementById('pool-assignments-table-body');
+        if (assignTbody) {
+            if (!data.assignments || data.assignments.length === 0) {
+                assignTbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-tertiary); padding: 28px;">
+                            No hay cuentas de WhatsApp configuradas en el sistema.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                assignTbody.innerHTML = data.assignments.map(a => {
+                    const isConnected = a.status === 'connected' || a.is_connected;
+                    const statusBadge = isConnected
+                        ? `<span class="status-badge status-connected"><i data-lucide="check-circle" style="width:12px;height:12px;"></i> Conectado</span>`
+                        : `<span class="status-badge status-disconnected"><i data-lucide="x-circle" style="width:12px;height:12px;"></i> Desconectado</span>`;
+                    
+                    const isPool = !a.isDirect || a.assigned_via_pool;
+                    const ipBadge = isPool
+                        ? `<span class="status-badge status-connected" style="display: inline-flex; align-items: center; gap: 4px; font-family: monospace; font-size: 11.5px;"><i data-lucide="shield-check" style="width:13px;height:13px;"></i> ${escapeHtml(a.assignedDisplay || a.proxy_display)}</span>`
+                        : `<span class="status-badge status-warning" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px;"><i data-lucide="server" style="width:13px;height:13px;"></i> Directo VPS</span>`;
+
+                    return `
+                        <tr>
+                            <td>
+                                <strong style="color: var(--text-primary); font-size: 13px;">${escapeHtml(a.name || a.profile_name)}</strong>
+                            </td>
+                            <td style="color: var(--text-secondary); font-size: 12.5px;">${escapeHtml(a.companyName || a.company_name || 'Sin Empresa')}</td>
+                            <td style="color: var(--text-secondary); font-size: 12.5px;">${escapeHtml(a.operatorEmail || a.operator_email || 'Sin Asignar')}</td>
+                            <td>${statusBadge}</td>
+                            <td>${ipBadge}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        if (window.lucide) lucide.createIcons();
+    } catch (err) {
+        toast('Error al cargar el pool de proxies: ' + (err.message || err), 'error');
+    }
+}
+
+async function handleBulkAddProxies() {
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        return toast('Acceso restringido: Solo el SuperAdmin puede agregar proxies', 'error');
+    }
+
+    const input = document.getElementById('pool-proxies-input');
+    const text = input ? input.value.trim() : '';
+
+    if (!text) {
+        return toast('Ingresá al menos una línea de proxy para cargar al pool', 'warning');
+    }
+
+    const btn = document.getElementById('btn-save-pool-proxies');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Procesando...`;
+    }
+
+    try {
+        const res = await api('/admin/proxies/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ text })
+        });
+
+        toast(res.message || 'Proxies cargados y asignados exitosamente');
+        if (input) input.value = '';
+        await loadProxiesPoolView();
+    } catch (err) {
+        toast(err.message || 'Error al agregar proxies', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="plus-circle"></i> Cargar y Asignar Automáticamente`;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+async function handleDeleteProxy(proxyId) {
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        return toast('Acceso restringido: Solo el SuperAdmin puede eliminar proxies', 'error');
+    }
+
+    const ok = await showConfirm({
+        title: 'Eliminar Proxy del Pool',
+        message: '¿Estás seguro de eliminar este proxy? Las cuentas de WhatsApp que lo usaban se rebalancearán automáticamente a las IPs restantes o volverán a la conexión directa por VPS.',
+        confirmText: 'Eliminar Proxy',
+        cancelText: 'Cancelar',
+        type: 'danger'
+    });
+
+    if (!ok) return;
+
+    try {
+        const res = await api(`/admin/proxies/${proxyId}`, {
+            method: 'DELETE'
+        });
+
+        toast(res.message || 'Proxy eliminado y cuentas rebalanceadas');
+        await loadProxiesPoolView();
+    } catch (err) {
+        toast(err.message || 'Error al eliminar el proxy', 'error');
+    }
+}
+
+async function handleRebalanceProxies() {
+    if (!currentUser || currentUser.role !== 'superadmin') {
+        return toast('Acceso restringido: Solo el SuperAdmin puede rebalancear proxies', 'error');
+    }
+
+    const btn = document.getElementById('btn-rebalance-proxies');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> Rebalanceando...`;
+    }
+
+    try {
+        const res = await api('/admin/proxies/rebalance', {
+            method: 'POST'
+        });
+
+        toast(res.message || 'Cuentas rebalanceadas exitosamente');
+        await loadProxiesPoolView();
+    } catch (err) {
+        toast(err.message || 'Error al rebalancear el pool', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="refresh-cw"></i> Rebalancear Asignaciones`;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+}
+
+window.loadProxiesPoolView = loadProxiesPoolView;
+window.handleBulkAddProxies = handleBulkAddProxies;
+window.handleDeleteProxy = handleDeleteProxy;
+window.handleRebalanceProxies = handleRebalanceProxies;

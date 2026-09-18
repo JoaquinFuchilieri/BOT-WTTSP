@@ -54,6 +54,7 @@ const blacklistRoutes = require('./routes/blacklist');
 const announcementRoutes = require('./routes/announcements');
 const auditLogRoutes = require('./routes/audit-logs');
 const helpRoutes = require('./routes/help');
+const adminProxiesRoutes = require('./routes/admin-proxies');
 
 app.use('/auth', authRoutes);
 app.use('/companies', companyRoutes);
@@ -65,6 +66,7 @@ app.use('/stats', statsRoutes);
 app.use('/blacklist', blacklistRoutes);
 app.use('/announcements', announcementRoutes);
 app.use('/audit-logs', auditLogRoutes);
+app.use('/admin/proxies', adminProxiesRoutes);
 app.use('/help', helpRoutes);
 
 app.get('/health', (req, res) => {
