@@ -12,6 +12,12 @@ CREATE TABLE IF NOT EXISTS companies (
     user_limit INTEGER DEFAULT 5,
     whatsapp_limit INTEGER DEFAULT 10,
     max_profiles_per_operator INTEGER DEFAULT 3,
+    delay_min INTEGER DEFAULT 115,
+    delay_max INTEGER DEFAULT 145,
+    batch_size INTEGER DEFAULT 15,
+    batch_pause_min INTEGER DEFAULT 25,
+    batch_pause_max INTEGER DEFAULT 30,
+    daily_limit INTEGER DEFAULT 200,
     status VARCHAR(20) DEFAULT 'active', -- active, suspended
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

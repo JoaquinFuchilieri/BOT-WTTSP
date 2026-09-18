@@ -238,6 +238,116 @@ router.patch('/:id', requireRole('superadmin'), async (req, res) => {
   }
 });
 
+// GET /companies/:id/antiban - Get company anti-ban defaults
+router.get('/:id/antiban', requireRole('superadmin'), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const compRes = await db.query(
+      `SELECT id, name, delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit FROM companies WHERE id = $1`,
+      [id]
+    );
+    if (compRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Empresa no encontrada' });
+    }
+    res.json(compRes.rows[0]);
+  } catch (err) {
+    console.error('[Company Antiban GET Error]', err);
+    res.status(500).json({ error: 'Error al obtener configuración anti-ban' });
+  }
+});
+
+// PUT /companies/:id/antiban - Update company anti-ban defaults and optionally update all existing profiles
+router.put('/:id/antiban', requireRole('superadmin'), async (req, res) => {
+  const { id } = req.params;
+  const {
+    delay_min = 115,
+    delay_max = 145,
+    batch_size = 15,
+    batch_pause_min = 25,
+    batch_pause_max = 30,
+    daily_limit = 200,
+    applyToProfiles = false
+  } = req.body;
+
+  try {
+    const dMin = parseInt(delay_min, 10);
+    const dMax = parseInt(delay_max, 10);
+    const bSize = parseInt(batch_size, 10);
+    const bpMin = parseInt(batch_pause_min, 10);
+    const bpMax = parseInt(batch_pause_max, 10);
+    const dLimit = parseInt(daily_limit, 10);
+
+    if (isNaN(dMin) || isNaN(dMax) || dMin < 1 || dMax < dMin) {
+      return res.status(400).json({ error: 'Rango de demora entre mensajes inválido (el mínimo debe ser <= máximo)' });
+    }
+    if (isNaN(bSize) || bSize < 1) {
+      return res.status(400).json({ error: 'Tamaño de lote inválido' });
+    }
+    if (isNaN(bpMin) || isNaN(bpMax) || bpMin < 0 || bpMax < bpMin) {
+      return res.status(400).json({ error: 'Rango de pausa entre lotes inválido (el mínimo debe ser <= máximo)' });
+    }
+    if (isNaN(dLimit) || dLimit < 1) {
+      return res.status(400).json({ error: 'Límite diario inválido' });
+    }
+
+    const compRes = await db.query(
+      `UPDATE companies SET 
+        delay_min = $1, 
+        delay_max = $2, 
+        batch_size = $3, 
+        batch_pause_min = $4, 
+        batch_pause_max = $5, 
+        daily_limit = $6 
+       WHERE id = $7 RETURNING id, name, delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit`,
+      [dMin, dMax, bSize, bpMin, bpMax, dLimit, id]
+    );
+
+    if (compRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Empresa no encontrada' });
+    }
+
+    let updatedProfilesCount = 0;
+    if (applyToProfiles) {
+      const profRes = await db.query(
+        `UPDATE profiles SET 
+          delay_min = $1, 
+          delay_max = $2, 
+          batch_size = $3, 
+          batch_pause_min = $4, 
+          batch_pause_max = $5, 
+          daily_limit = $6 
+         WHERE company_id = $7 RETURNING id`,
+        [dMin, dMax, bSize, bpMin, bpMax, dLimit, id]
+      );
+      updatedProfilesCount = profRes.rows.length;
+    }
+
+    await logAudit(req, 'UPDATE_COMPANY_ANTIBAN', {
+      companyId: id,
+      companyName: compRes.rows[0].name,
+      delay_min: dMin,
+      delay_max: dMax,
+      batch_size: bSize,
+      batch_pause_min: bpMin,
+      batch_pause_max: bpMax,
+      daily_limit: dLimit,
+      applyToProfiles,
+      updatedProfilesCount
+    });
+
+    res.json({
+      message: applyToProfiles 
+        ? `Configuración guardada y aplicada a ${updatedProfilesCount} WhatsApps de la empresa`
+        : 'Configuración guardada para nuevos WhatsApps',
+      company: compRes.rows[0],
+      updatedProfilesCount
+    });
+  } catch (err) {
+    console.error('[Company Antiban PUT Error]', err);
+    res.status(500).json({ error: 'Error al actualizar configuración anti-ban: ' + err.message });
+  }
+});
+
 // POST /companies/:id/reset-defaults - Deep purge and reset company to base blank configurations
 router.post('/:id/reset-defaults', requireRole('superadmin'), async (req, res) => {
   const { id } = req.params;

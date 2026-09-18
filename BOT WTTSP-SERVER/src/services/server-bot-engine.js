@@ -140,16 +140,29 @@ async function runBotLoop(profileId) {
       const batchSize = profile.batch_size || 15;
       if (sentInCurrentBatch >= batchSize) {
         const pauseMinutes = randomBetween(profile.batch_pause_min || 25, profile.batch_pause_max || 30);
+        const pauseSeconds = pauseMinutes * 60;
+        const nextSendAt = Date.now() + (pauseSeconds * 1000);
+        botState.status = 'batch_pause';
+        botState.nextSendAt = nextSendAt;
         console.log(`[BotEngine] Profile ${profileId} reached batch limit (${batchSize}). Pausing for ${pauseMinutes}m...`);
-        
-        emitProgress(profileId, {
-          status: 'batch_pause',
-          pauseMinutes,
-          nextAction: `Pausa de lote: descansando ${pauseMinutes} minutos para proteger la cuenta.`
-        });
 
         sentInCurrentBatch = 0;
-        await sleep(pauseMinutes * 60 * 1000);
+        let pauseElapsed = 0;
+        while (pauseElapsed < pauseSeconds && botState.isRunning) {
+          const remainingSecs = Math.max(0, Math.round((nextSendAt - Date.now()) / 1000));
+          botState.nextAction = `Pausa de lote: descansando (${Math.ceil(remainingSecs / 60)}m restantes)...`;
+          emitProgress(profileId, {
+            status: 'batch_pause',
+            pauseMinutes,
+            countdown: remainingSecs,
+            nextSendAt,
+            nextAction: botState.nextAction
+          });
+          await sleep(1000);
+          pauseElapsed += 1;
+        }
+        botState.status = 'processing';
+        botState.nextSendAt = null;
         continue;
       }
 
@@ -258,21 +271,29 @@ async function runBotLoop(profileId) {
       const delayMin = profile.delay_min || 115;
       const delayMax = profile.delay_max || 145;
       const waitSeconds = randomBetween(delayMin, delayMax);
+      const nextSendAt = Date.now() + (waitSeconds * 1000);
+      botState.status = 'cooling_down';
+      botState.nextSendAt = nextSendAt;
 
       console.log(`[BotEngine] Profile ${profileId} sent to ${phoneNumber}. Waiting ${waitSeconds}s before next...`);
 
-      // Sleep in smaller increments so bot can be stopped responsively
+      // Sleep in 1-second increments so countdown is precise and bot stops responsively
       let elapsed = 0;
       while (elapsed < waitSeconds && botState.isRunning) {
+        const remaining = Math.max(0, Math.round((nextSendAt - Date.now()) / 1000));
+        botState.nextAction = `Esperando retraso humano de seguridad (${remaining}s)...`;
         emitProgress(profileId, {
           status: 'cooling_down',
           sentToday,
-          countdown: waitSeconds - elapsed,
-          nextAction: `Esperando retraso humano de seguridad (${waitSeconds - elapsed}s)...`
+          countdown: remaining,
+          nextSendAt,
+          nextAction: botState.nextAction
         });
-        await sleep(2000);
-        elapsed += 2;
+        await sleep(1000);
+        elapsed += 1;
       }
+      botState.status = 'processing';
+      botState.nextSendAt = null;
 
     } catch (loopErr) {
       console.error(`[BotEngine] Unexpected error in worker loop for ${profileId}:`, loopErr);
@@ -300,7 +321,7 @@ async function startBot(profileId) {
 
   await db.query("UPDATE profiles SET is_active_bot = TRUE, is_paused_early_warning = FALSE WHERE id = $1", [profileId]);
 
-  botState = { isRunning: true };
+  botState = { isRunning: true, status: 'started', nextSendAt: null, nextAction: 'Bot activado' };
   runningBots.set(profileId, botState);
 
   // Fire and forget worker loop
@@ -319,13 +340,40 @@ async function stopBot(profileId) {
   const botState = runningBots.get(profileId);
   if (botState) {
     botState.isRunning = false;
+    botState.status = 'stopped';
+    botState.nextSendAt = null;
   }
   runningBots.delete(profileId);
 
   await db.query("UPDATE profiles SET is_active_bot = FALSE WHERE id = $1", [profileId]);
 
-  emitProgress(profileId, { status: 'stopped', nextAction: 'Bot apagado.' });
+  emitProgress(profileId, { status: 'stopped', nextAction: 'Bot apagado.', countdown: 0, nextSendAt: null });
   return { success: true };
+}
+
+/**
+ * Get live state and countdown timestamp of a bot
+ */
+function getBotState(profileId) {
+  const botState = runningBots.get(profileId);
+  if (!botState || !botState.isRunning) {
+    return {
+      isRunning: false,
+      status: 'stopped',
+      nextSendAt: null,
+      countdown: 0,
+      nextAction: 'Bot en pausa'
+    };
+  }
+  const nextSendAt = botState.nextSendAt || null;
+  const countdown = nextSendAt ? Math.max(0, Math.round((nextSendAt - Date.now()) / 1000)) : 0;
+  return {
+    isRunning: true,
+    status: botState.status || 'running',
+    nextSendAt,
+    countdown,
+    nextAction: botState.nextAction || 'Bot activo procesando'
+  };
 }
 
 /**
@@ -349,5 +397,6 @@ module.exports = {
   stopBot,
   autoStartBots,
   onProgress,
+  getBotState,
   runningBots
 };

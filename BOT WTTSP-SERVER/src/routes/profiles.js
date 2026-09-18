@@ -41,11 +41,13 @@ router.get('/', async (req, res) => {
     // Merge live Baileys session status into returned profiles
     const rows = result.rows.map(p => {
       const liveSession = baileysManager.getSession(p.id);
+      const botState = botEngine.getBotState(p.id);
       return {
         ...p,
         live_status: liveSession.status || p.status,
         qr: liveSession.qr || null,
-        phone_number: liveSession.phoneNumber || p.phone_number || ''
+        phone_number: liveSession.phoneNumber || p.phone_number || '',
+        bot_state: botState
       };
     });
 
@@ -75,12 +77,16 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    // 1. Check Company-wide WhatsApp account limit
-    const compRes = await db.query('SELECT whatsapp_limit, user_limit, max_profiles_per_operator FROM companies WHERE id = $1', [compId]);
+    // 1. Check Company-wide WhatsApp account limit and anti-ban defaults
+    const compRes = await db.query(
+      'SELECT whatsapp_limit, user_limit, max_profiles_per_operator, delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit FROM companies WHERE id = $1',
+      [compId]
+    );
     if (compRes.rows.length === 0) {
       return res.status(404).json({ error: 'Empresa no encontrada' });
     }
-    const maxCompanyWhatsApp = compRes.rows[0].whatsapp_limit || 10;
+    const compData = compRes.rows[0];
+    const maxCompanyWhatsApp = compData.whatsapp_limit || 10;
     const defaultPerOperator = 2;
 
     const countRes = await db.query('SELECT COUNT(*) FROM profiles WHERE company_id = $1', [compId]);
@@ -125,15 +131,22 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Defaults for delays and anti-ban (managed strictly by SuperAdmin)
+    // Defaults for delays and anti-ban inherited from Company
+    const delayMin = compData.delay_min || 115;
+    const delayMax = compData.delay_max || 145;
+    const batchSize = compData.batch_size || 15;
+    const batchPauseMin = compData.batch_pause_min || 25;
+    const batchPauseMax = compData.batch_pause_max || 30;
+    const dailyLimit = compData.daily_limit || 200;
+
     const result = await db.query(
       `INSERT INTO profiles (
         company_id, assigned_user_id, name, message, category,
         delay_min, delay_max, batch_size, batch_pause_min, batch_pause_max, daily_limit,
         status, is_active_bot, sent_today, last_sent_date
-      ) VALUES ($1, $2, $3, $4, $5, 115, 145, 15, 25, 30, 200, 'disconnected', FALSE, 0, CURRENT_DATE)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'disconnected', FALSE, 0, CURRENT_DATE)
       RETURNING *`,
-      [compId, effectiveAssignedUserId || null, name.trim(), message, cleanCategory]
+      [compId, effectiveAssignedUserId || null, name.trim(), message, cleanCategory, delayMin, delayMax, batchSize, batchPauseMin, batchPauseMax, dailyLimit]
     );
 
     // Auto-assign proxy slot from pool in groups of 20 (or VPS fallback)
@@ -175,7 +188,8 @@ router.get('/:id', async (req, res) => {
       ...result.rows[0],
       live_status: liveSession.status || result.rows[0].status,
       qr: liveSession.qr || null,
-      phone_number: liveSession.phoneNumber || result.rows[0].phone_number || ''
+      phone_number: liveSession.phoneNumber || result.rows[0].phone_number || '',
+      bot_state: botEngine.getBotState(id)
     };
 
     res.json(profile);

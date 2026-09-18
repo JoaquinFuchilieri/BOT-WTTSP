@@ -139,6 +139,9 @@
                     <button id="btn-switch-company" class="btn-secondary hidden" style="padding: 4px 12px; font-size: 11.5px; margin-left: 10px;">
                         <i data-lucide="arrow-left"></i> Cambiar de Empresa
                     </button>
+                    <button id="btn-company-antiban" class="btn-secondary hidden" style="padding: 4px 12px; font-size: 11.5px; margin-left: 10px; color: var(--accent-pink); border-color: rgba(224, 77, 128, 0.35); display: inline-flex; align-items: center; gap: 5px;">
+                        <i data-lucide="shield-alert"></i> Anti-Ban & Cooldown
+                    </button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <button id="btn-open-announcements-inbox" class="btn-secondary" onclick="switchView('view-admin-announcements')" style="position: relative; display: flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px;">
@@ -928,6 +931,77 @@
         </div>
     </div>
 
+    <!-- Modal: Configuración Anti-Ban y Cooldown de Empresa (SuperAdmin) -->
+    <div id="modal-company-antiban" class="modal hidden">
+        <div class="modal-card" style="max-width: 540px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <span style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(224, 77, 128, 0.15); color: var(--accent-pink); border: 1px solid rgba(224, 77, 128, 0.3);">
+                    <i data-lucide="shield-alert" style="width: 18px; height: 18px;"></i>
+                </span>
+                <div>
+                    <h3 style="font-size: 17px; font-weight: 700;">Gestión de Cooldown & Anti-Ban</h3>
+                    <p id="antiban-company-name" style="font-size: 13px; color: var(--accent-pink); font-weight: 600;">Empresa</p>
+                </div>
+            </div>
+            <p style="font-size: 12.5px; color: var(--text-secondary); margin-bottom: 16px;">
+                Configuración general de tiempos, pausas y lotes de envío para las cuentas de WhatsApp de esta empresa.
+            </p>
+            <input type="hidden" id="antiban-company-id">
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="antiban-delay-min">Demora Mínima (segundos):</label>
+                    <input type="number" id="antiban-delay-min" min="1" value="115">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="antiban-delay-max">Demora Máxima (segundos):</label>
+                    <input type="number" id="antiban-delay-max" min="1" value="145">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="antiban-batch-size">Tamaño de Lote:</label>
+                    <input type="number" id="antiban-batch-size" min="1" value="15">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="antiban-pause-min">Pausa Mín (minutos):</label>
+                    <input type="number" id="antiban-pause-min" min="0" value="25">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="antiban-pause-max">Pausa Máx (minutos):</label>
+                    <input type="number" id="antiban-pause-max" min="0" value="30">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="antiban-daily-limit">Límite Diario por WhatsApp (mensajes/día):</label>
+                <input type="number" id="antiban-daily-limit" min="1" value="200">
+            </div>
+
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-hairline); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px;">
+                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
+                    <input type="checkbox" id="antiban-apply-existing" style="width: 18px; height: 18px; margin-top: 2px; cursor: pointer;">
+                    <div>
+                        <strong style="font-size: 13px; color: var(--text-primary);">Aplicar a todas las cuentas de WhatsApp existentes</strong>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                            Si está marcado, actualizará de inmediato el cooldown y límites en todos los bots ya creados en esta empresa. Si no, solo aplicará a los nuevos que se creen a partir de ahora.
+                        </p>
+                    </div>
+                </label>
+            </div>
+
+            <p id="antiban-modal-error" class="hidden" style="color: var(--accent-red); font-size: 12.5px; margin-bottom: 10px;"></p>
+
+            <div class="flex gap-10" style="justify-content: flex-end; padding-top: 14px; border-top: 1px solid var(--border-hairline);">
+                <button type="button" class="btn-secondary" onclick="hideModal('modal-company-antiban')">Cancelar</button>
+                <button type="button" id="btn-save-company-antiban" class="btn-primary" onclick="handleSaveCompanyAntiban()" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <i data-lucide="shield-check"></i> Guardar Anti-Ban
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Escaneo de Código QR en Vivo (Baileys Web) -->
     <div id="modal-qr" class="modal hidden">
         <div class="modal-card" style="max-width: 440px; text-align: center;">
@@ -1493,8 +1567,8 @@
     <script src="js/lucide.min.js?v=20260918_v1"></script>
     <script src="js/icons-helper.js?v=20260918_v1"></script>
     <script src="js/dialog.js?v=20260918_v1"></script>
-    <script src="js/app.js?v=20260918_v9"></script>
-    <script src="js/operator-view.js?v=20260918_v5"></script>
+    <script src="js/app.js?v=20260918_v10"></script>
+    <script src="js/operator-view.js?v=20260918_v6"></script>
     <script src="js/distribution-view.js?v=20260918_v3"></script>
 </body>
 </html>

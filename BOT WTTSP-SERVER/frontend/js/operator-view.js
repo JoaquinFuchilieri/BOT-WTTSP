@@ -7,6 +7,47 @@ let operatorBots = [];
 let activeQrProfileId = null;
 let qrPollInterval = null;
 let operatorWs = null;
+const botTimers = {}; // { [profileId]: { nextSendAt: ms, nextAction: 'delay'|'batch_pause', status: 'running' } }
+let countdownTickerInterval = null;
+
+function startCountdownTicker() {
+    if (countdownTickerInterval) return;
+    countdownTickerInterval = setInterval(updateBotCountdownTickers, 1000);
+}
+
+function updateBotCountdownTickers() {
+    const now = Date.now();
+    for (const [profileId, info] of Object.entries(botTimers)) {
+        const badgeEl = document.getElementById(`bot-timer-badge-${profileId}`);
+        const labelEl = document.getElementById(`bot-timer-label-${profileId}`);
+        const valEl = document.getElementById(`bot-timer-val-${profileId}`);
+        if (!badgeEl || !valEl) continue;
+
+        if (!info || info.status !== 'running' || !info.nextSendAt) {
+            badgeEl.style.display = 'none';
+            continue;
+        }
+
+        const remainingMs = info.nextSendAt - now;
+        if (remainingMs <= 0) {
+            badgeEl.style.display = 'inline-flex';
+            if (labelEl) labelEl.textContent = 'Enviando mensaje...';
+            valEl.textContent = '00:00';
+            valEl.style.color = '#4ade80';
+        } else {
+            badgeEl.style.display = 'inline-flex';
+            const totalSec = Math.ceil(remainingMs / 1000);
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
+            const mmss = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            if (labelEl) {
+                labelEl.textContent = info.nextAction === 'batch_pause' ? 'Pausa de lote:' : 'Siguiente mensaje en:';
+            }
+            valEl.textContent = mmss;
+            valEl.style.color = info.nextAction === 'batch_pause' ? '#f59e0b' : '#38bdf8';
+        }
+    }
+}
 
 async function loadOperatorBots() {
     const grid = document.getElementById('operator-bots-grid');
@@ -34,6 +75,21 @@ async function loadOperatorBots() {
 
         if (noBotsEl) noBotsEl.classList.add('hidden');
         renderOperatorBots(operatorBots);
+
+        // Sync initial bot states and start ticker
+        operatorBots.forEach(bot => {
+            if (bot.bot_state && bot.bot_state.nextSendAt && bot.bot_state.status === 'running') {
+                botTimers[bot.id] = {
+                    nextSendAt: bot.bot_state.nextSendAt,
+                    nextAction: bot.bot_state.nextAction || 'delay',
+                    status: bot.bot_state.status
+                };
+            } else if (botTimers[bot.id]) {
+                delete botTimers[bot.id];
+            }
+        });
+        startCountdownTicker();
+        updateBotCountdownTickers();
     } catch (err) {
         console.error('[OperatorView] Error loading operator bots:', err);
         toast('Error al cargar cuentas de WhatsApp', 'error');
@@ -150,7 +206,16 @@ function renderOperatorBots(bots) {
                     </button>
                 </div>
 
-                <!-- Bot Sending Status / Countdown -->
+                <!-- Live Countdown Timer Badge -->
+                <div id="bot-timer-badge-${bot.id}" class="bot-countdown-badge" style="display: ${bot.bot_state && bot.bot_state.nextSendAt && bot.bot_state.status === 'running' ? 'inline-flex' : 'none'}; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; padding: 6px 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.28); color: #38bdf8; font-size: 12px; font-weight: 600; margin-bottom: 8px;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i data-lucide="clock" style="width: 14px; height: 14px; color: #38bdf8;"></i>
+                        <span id="bot-timer-label-${bot.id}">Siguiente mensaje en:</span>
+                    </span>
+                    <span id="bot-timer-val-${bot.id}" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #38bdf8;">--:--</span>
+                </div>
+
+                <!-- Bot Sending Status / Details -->
                 <div id="bot-status-text-${bot.id}" style="font-size:12px; color:var(--text-secondary); min-height:18px; margin-bottom:8px; font-style:italic;">
                     ${isBotOn ? 'Bot activo. Procesando colas...' : 'Bot en pausa.'}
                 </div>
@@ -459,6 +524,12 @@ async function toggleBotState(profileId) {
             statusText.textContent = bot.is_active_bot ? 'Bot encendido. Procesando colas...' : 'Bot en pausa.';
         }
 
+        if (!bot.is_active_bot) {
+            delete botTimers[profileId];
+            const timerBadge = document.getElementById(`bot-timer-badge-${profileId}`);
+            if (timerBadge) timerBadge.style.display = 'none';
+        }
+
         if (window.lucide) lucide.createIcons();
         toast(bot.is_active_bot ? 'Bot encendido' : 'Bot pausado', 'info');
     } catch (err) {
@@ -616,6 +687,20 @@ function initOperatorWebSocket() {
                     if (pendEl && data.pendingCount !== undefined) pendEl.textContent = data.pendingCount;
                     if (errEl && data.errorCount !== undefined) errEl.textContent = data.errorCount;
                     if (stEl && data.statusText) stEl.textContent = data.statusText;
+
+                    if (data.nextSendAt && data.status === 'running') {
+                        botTimers[data.profileId] = {
+                            nextSendAt: data.nextSendAt,
+                            nextAction: data.nextAction || 'delay',
+                            status: data.status
+                        };
+                        startCountdownTicker();
+                        updateBotCountdownTickers();
+                    } else if (data.status !== 'running' || !data.nextSendAt) {
+                        delete botTimers[data.profileId];
+                        const badgeEl = document.getElementById(`bot-timer-badge-${data.profileId}`);
+                        if (badgeEl) badgeEl.style.display = 'none';
+                    }
                 }
             } catch (e) {
                 console.error('[OperatorView WS] Message parse error:', e);

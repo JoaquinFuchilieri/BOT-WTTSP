@@ -315,6 +315,7 @@ function showAppShell() {
         document.getElementById('nav-announcements').classList.remove('hidden');
         if (document.getElementById('nav-proxies')) document.getElementById('nav-proxies').classList.remove('hidden');
         document.getElementById('nav-admins').classList.remove('hidden');
+        document.getElementById('nav-operators').classList.remove('hidden');
         document.getElementById('nav-blacklist').classList.remove('hidden');
         document.getElementById('nav-audit').classList.remove('hidden');
         document.getElementById('nav-reports').classList.add('hidden');
@@ -467,6 +468,16 @@ function updateBreadcrumb(currentViewId) {
         }
         switchBtn.classList.add('hidden');
     }
+
+    const antibanBtn = document.getElementById('btn-company-antiban');
+    if (antibanBtn) {
+        if (currentUser.role === 'superadmin' && activeCompanyId && !['view-companies', 'view-reports', 'view-announcements', 'view-proxies'].includes(vId)) {
+            antibanBtn.classList.remove('hidden');
+            antibanBtn.onclick = () => openCompanyAntibanModal(activeCompanyId, activeCompanyName);
+        } else {
+            antibanBtn.classList.add('hidden');
+        }
+    }
 }
 
 function switchView(viewId) {
@@ -610,8 +621,16 @@ async function loadCompaniesDirectory() {
                         ${getLucideSvg('arrow-right', 14)} Entrar a Gestionar
                     </button>
                     <div style="display: flex; gap: 8px;">
+                        <button title="Ver y Gestionar Operadores de la Empresa" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="enterCompanyOperators('${c.id}', '${c.name.replace(/'/g, "\\'")}', '${c.status}')">
+                            ${getLucideSvg('users', 13)} Operadores
+                        </button>
                         <button title="Configuración de Límites" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="openCompanyLimitsModal('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.user_limit || 5}, ${c.whatsapp_limit || 10})">
                             ${getLucideSvg('sliders', 13)} Límites
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button title="Configuración de Cooldown y Anti-Ban" class="btn-secondary" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px; color: var(--accent-pink); border-color: rgba(224, 77, 128, 0.35);" onclick="openCompanyAntibanModal('${c.id}', '${c.name.replace(/'/g, "\\'")}')">
+                            ${getLucideSvg('shield-alert', 13)} Anti-Ban
                         </button>
                         <button class="${isSuspended ? 'btn-success' : 'btn-danger'}" style="flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px;" onclick="toggleCompanyStatus('${c.id}', '${c.status}')">
                             ${isSuspended ? getLucideSvg('play', 13) + ' Activar' : getLucideSvg('pause', 13) + ' Suspender'}
@@ -728,6 +747,107 @@ function enterCompanyManagement(companyId, companyName, status) {
     switchView('view-metrics');
     toast(`Gestionando empresa: ${companyName}`);
 }
+
+function enterCompanyOperators(companyId, companyName, status) {
+    activeCompanyId = companyId;
+    activeCompanyName = companyName;
+    activeCompanyStatus = status;
+    updateBreadcrumb();
+    switchView('view-operators');
+    toast(`Gestionando operadores de: ${companyName}`);
+}
+window.enterCompanyOperators = enterCompanyOperators;
+
+async function openCompanyAntibanModal(companyId, companyName) {
+    const cid = companyId || activeCompanyId;
+    const cname = companyName || activeCompanyName || 'Empresa';
+    if (!cid) return toast('Selecciona una empresa primero', 'warning');
+
+    document.getElementById('antiban-company-id').value = cid;
+    document.getElementById('antiban-company-name').textContent = `Empresa: ${cname}`;
+    const errEl = document.getElementById('antiban-modal-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    try {
+        const data = await api(`/companies/${cid}/antiban`);
+        document.getElementById('antiban-delay-min').value = data.delay_min !== undefined ? data.delay_min : 115;
+        document.getElementById('antiban-delay-max').value = data.delay_max !== undefined ? data.delay_max : 145;
+        document.getElementById('antiban-batch-size').value = data.batch_size !== undefined ? data.batch_size : 15;
+        document.getElementById('antiban-pause-min').value = data.batch_pause_min !== undefined ? data.batch_pause_min : 25;
+        document.getElementById('antiban-pause-max').value = data.batch_pause_max !== undefined ? data.batch_pause_max : 30;
+        document.getElementById('antiban-daily-limit').value = data.daily_limit !== undefined ? data.daily_limit : 200;
+        document.getElementById('antiban-apply-existing').checked = false;
+        showModal('modal-company-antiban');
+    } catch (err) {
+        toast(`Error al cargar configuración anti-ban: ${err.message}`, 'error');
+    }
+}
+window.openCompanyAntibanModal = openCompanyAntibanModal;
+
+async function handleSaveCompanyAntiban() {
+    const id = document.getElementById('antiban-company-id').value;
+    const delay_min = document.getElementById('antiban-delay-min').value;
+    const delay_max = document.getElementById('antiban-delay-max').value;
+    const batch_size = document.getElementById('antiban-batch-size').value;
+    const batch_pause_min = document.getElementById('antiban-pause-min').value;
+    const batch_pause_max = document.getElementById('antiban-pause-max').value;
+    const daily_limit = document.getElementById('antiban-daily-limit').value;
+    const applyToProfiles = document.getElementById('antiban-apply-existing').checked;
+    const errEl = document.getElementById('antiban-modal-error');
+
+    if (!delay_min || !delay_max || !batch_size || !batch_pause_min || !batch_pause_max || !daily_limit) {
+        if (errEl) {
+            errEl.textContent = 'Por favor completa todos los campos de configuración';
+            errEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const dMin = parseInt(delay_min, 10);
+    const dMax = parseInt(delay_max, 10);
+    if (dMin > dMax) {
+        if (errEl) {
+            errEl.textContent = 'La demora mínima no puede ser mayor que la demora máxima';
+            errEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const bpMin = parseInt(batch_pause_min, 10);
+    const bpMax = parseInt(batch_pause_max, 10);
+    if (bpMin > bpMax) {
+        if (errEl) {
+            errEl.textContent = 'La pausa mínima no puede ser mayor que la pausa máxima';
+            errEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    try {
+        const res = await api(`/companies/${id}/antiban`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                delay_min: dMin,
+                delay_max: dMax,
+                batch_size: parseInt(batch_size, 10),
+                batch_pause_min: bpMin,
+                batch_pause_max: bpMax,
+                daily_limit: parseInt(daily_limit, 10),
+                applyToProfiles
+            })
+        });
+        hideModal('modal-company-antiban');
+        toast(res.message || 'Configuración anti-ban guardada correctamente', 'success');
+    } catch (err) {
+        if (errEl) {
+            errEl.textContent = err.message;
+            errEl.classList.remove('hidden');
+        } else {
+            toast(err.message, 'error');
+        }
+    }
+}
+window.handleSaveCompanyAntiban = handleSaveCompanyAntiban;
 
 async function handleCreateCompany() {
     const name = document.getElementById('new-comp-name').value.trim();
